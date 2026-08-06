@@ -1,0 +1,194 @@
+# Dependencies
+
+node_modules/
+.pnp/
+.pnp.js
+
+# Production builds
+
+dist/
+build/
+out/
+
+# Test coverage
+
+coverage/
+.nyc_output/
+
+# Vite
+
+.vite/
+vite.config.*.timestamp-*
+
+# TypeScript
+
+*.tsbuildinfo
+
+# Environment variables
+
+.env
+.env.*
+!.env.example
+
+# Logs
+
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# Runtime data
+
+pids/
+*.pid
+*.seed
+*.pid.lock
+
+# Cache
+
+.cache/
+.parcel-cache/
+.eslintcache
+.stylelintcache
+.npm/
+.yarn/cache/
+.yarn/unplugged/
+.pnpm-store/
+
+# Temporary files
+
+tmp/
+temp/
+*.tmp
+*.temp
+*.swp
+*.swo
+*~
+
+# Local databases
+
+*.sqlite
+*.sqlite3
+*.db
+
+# IDEs and editors
+
+.idea/
+*.iml
+
+# Visual Studio Code
+
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.example.json
+!.vscode/tasks.json
+!.vscode/launch.json
+
+# Visual Studio
+
+.vs/
+
+# Operating systems
+
+.DS_Store
+.AppleDouble
+.LSOverride
+Icon?
+._*
+.Spotlight-V100
+.Trashes
+Thumbs.db
+Thumbs.db:encryptable
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+
+# Windows shortcuts
+
+*.lnk
+
+# Certificates and keys
+
+*.pem
+*.key
+*.crt
+*.p12
+*.pfx
+
+# Secrets and credentials
+
+credentials.json
+service-account*.json
+firebase-adminsdk*.json
+secrets/
+.secret/
+*.secret
+
+# Local AI or agent working files
+
+.ai/
+.agent/
+.agents/
+.aistudio/
+.antigravity/
+.jules/
+.claude/
+.cursor/
+
+# Local exports and generated archives
+
+exports/
+downloads/
+*.zip
+*.tar
+*.tar.gz
+
+# Deployment metadata
+
+.vercel/
+.netlify/
+.firebase/
+
+# Cloud and emulator files
+
+firebase-debug.log
+firestore-debug.log
+ui-debug.log
+.emulator-data/
+
+# Storybook
+
+storybook-static/
+
+# Playwright
+
+playwright-report/
+test-results/
+blob-report/
+
+# Cypress
+
+cypress/screenshots/
+cypress/videos/
+cypress/downloads/
+
+# Miscellaneous generated files
+
+*.bak
+*.orig
+*.rej
+stats.html
+
+# Local deployment copies
+
+public_html/
+bluehost-deploy/
+deployment-package/
+
+# Do not ignore source-controlled public assets
+
+!public/
+!public/**

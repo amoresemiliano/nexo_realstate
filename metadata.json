@@ -1,0 +1,8 @@
+{
+  "name": "Nexo Desarrollos",
+  "description": "MVP mobile-first para la gestión integral de desarrollos inmobiliarios",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
