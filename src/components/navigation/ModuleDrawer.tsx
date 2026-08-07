@@ -14,7 +14,9 @@ import {
   Building,
   X,
   ChevronRight,
-  ShieldAlert
+  ShieldAlert,
+  BarChart3,
+  RotateCcw
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { mockAlerts } from '../../data/mockData';
@@ -24,6 +26,7 @@ interface ModuleDrawerProps {
   onClose: () => void;
   activeModule: string;
   onSelectModule: (moduleId: string) => void;
+  onResetDemo?: () => void;
 }
 
 export const ModuleDrawer: React.FC<ModuleDrawerProps> = ({
@@ -31,13 +34,15 @@ export const ModuleDrawer: React.FC<ModuleDrawerProps> = ({
   onClose,
   activeModule,
   onSelectModule,
+  onResetDemo,
 }) => {
   const modulesGrouped = [
     {
       group: 'Centro Operativo & Control',
       items: [
         { id: 'operational', name: 'Centro Operativo Multiactor', icon: ShieldAlert, badge: 'EN VIVO' },
-        { id: 'dashboard', name: 'Dashboard Principal', icon: LayoutDashboard, badge: null },
+        { id: 'dashboard', name: 'Dashboards por Rol', icon: LayoutDashboard, badge: null },
+        { id: 'reports', name: 'Reportes & Exportaciones', icon: BarChart3, badge: 'PDF/CSV' },
       ]
     },
     {
@@ -152,12 +157,30 @@ export const ModuleDrawer: React.FC<ModuleDrawerProps> = ({
             </div>
 
             {/* Footer user / project status */}
-            <div className="p-4 bg-slate-950 border-t border-slate-800 flex items-center justify-between text-xs text-slate-400">
-              <div className="flex items-center gap-2">
-                <ShieldAlert className="w-4 h-4 text-emerald-400" />
-                <span>Simulador MVP Activo</span>
+            <div className="p-4 bg-slate-950 border-t border-slate-800 space-y-2.5">
+              <div className="flex items-center justify-between text-xs text-slate-400">
+                <div className="flex items-center gap-2">
+                  <ShieldAlert className="w-4 h-4 text-emerald-400" />
+                  <span className="font-bold text-slate-300">DEMO MODE</span>
+                </div>
+                <span className="text-[10px] bg-amber-500/20 text-amber-300 px-2 py-0.5 rounded-full border border-amber-500/30 font-bold">
+                  Datos Simulados
+                </span>
               </div>
-              <span className="font-mono text-[10px]">Altos del Horizonte</span>
+
+              {onResetDemo && (
+                <button
+                  onClick={() => {
+                    if (window.confirm('¿Desea restablecer todos los datos de demostración del simulador MVP a su estado inicial?')) {
+                      onResetDemo();
+                      onClose();
+                    }
+                  }}
+                  className="w-full py-2 bg-rose-500/20 hover:bg-rose-500/30 text-rose-300 border border-rose-500/40 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 active:scale-98"
+                >
+                  <RotateCcw className="w-3.5 h-3.5" /> Restablecer Demo MVP
+                </button>
+              )}
             </div>
           </motion.div>
         </div>

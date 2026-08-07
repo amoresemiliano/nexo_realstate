@@ -10,6 +10,7 @@ interface HeaderProps {
   onOpenMenu: () => void;
   onOpenNotifications: () => void;
   onOpenOperationalCenter?: () => void;
+  onResetDemo?: () => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -19,10 +20,11 @@ export const Header: React.FC<HeaderProps> = ({
   onOpenMenu,
   onOpenNotifications,
   onOpenOperationalCenter,
+  onResetDemo,
 }) => {
   return (
     <header className="sticky top-0 z-40 bg-slate-900 text-white shadow-md border-b border-slate-800">
-      <div className="px-3 sm:px-4 py-2.5 flex items-center justify-between">
+      <div className="px-3 sm:px-4 py-2 flex items-center justify-between">
         {/* Left Brand & Dev selector */}
         <div className="flex items-center gap-2">
           <button
@@ -34,9 +36,12 @@ export const Header: React.FC<HeaderProps> = ({
           </button>
           
           <div className="flex flex-col">
-            <div className="flex items-center gap-1.5 text-[11px] text-amber-400 font-bold uppercase tracking-wider">
+            <div className="flex items-center gap-1.5 text-[10px] sm:text-[11px] text-amber-400 font-bold uppercase tracking-wider">
               <Building2 className="w-3.5 h-3.5" />
               <span>Nexo Desarrollos</span>
+              <span className="hidden md:inline-block text-[9px] bg-amber-500/20 text-amber-300 border border-amber-500/30 px-1.5 py-0.2 rounded font-extrabold ml-1">
+                DEMO MODE
+              </span>
             </div>
             <div className="flex items-center gap-1 cursor-pointer hover:opacity-90">
               <span className="text-xs sm:text-sm font-extrabold tracking-tight text-white">{mockDevelopment.name}</span>
@@ -46,7 +51,7 @@ export const Header: React.FC<HeaderProps> = ({
         </div>
 
         {/* Right Actions */}
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1.5 sm:gap-2">
           {/* Operational Center Quick Button */}
           {onOpenOperationalCenter && (
             <button
@@ -81,9 +86,12 @@ export const Header: React.FC<HeaderProps> = ({
           <span className="truncate">Vista: <strong className="text-white">{activeModuleTitle}</strong></span>
         </div>
 
-        <div className="flex items-center gap-1 text-[11px] text-amber-400 font-bold shrink-0">
-          <UserCheck className="w-3.5 h-3.5" />
-          <span>{userRole}</span>
+        <div className="flex items-center gap-2 shrink-0">
+          <span className="text-[10px] text-slate-400 hidden sm:inline-block">Simulador MVP</span>
+          <div className="flex items-center gap-1 text-[11px] text-amber-400 font-bold">
+            <UserCheck className="w-3.5 h-3.5" />
+            <span>{userRole}</span>
+          </div>
         </div>
       </div>
     </header>

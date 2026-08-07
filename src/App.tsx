@@ -95,6 +95,7 @@ import { EscalationWalkthroughModal } from './components/automations/EscalationW
 
 // Modules
 import { DashboardModule } from './modules/dashboard/DashboardModule';
+import { ReportsModule } from './modules/reports/ReportsModule';
 import { LotsModule } from './modules/lots/LotsModule';
 import { LeadsModule } from './modules/leads/LeadsModule';
 import { QuotesModule } from './modules/quotes/QuotesModule';
@@ -355,6 +356,30 @@ export function App() {
   };
 
   const handleResetDemoData = () => {
+    setLots(mockLots);
+    setLeads(mockLeads);
+    setHolds(mockHolds);
+    setReservations(mockReservations);
+    setDeposits(mockDeposits);
+    setIntents(mockReservationIntents);
+    setPaymentPlans(mockPaymentPlans);
+    setSellers(mockSellers);
+    setCampaigns(mockCampaigns);
+    setActivities(mockActivities);
+    setTasks(mockTasks);
+    setVisits(mockVisits);
+    setDevelopments(mockDevelopments);
+    setQuotes(mockQuotes);
+    setNotaryOffices(mockNotaryOffices);
+    setSurveyors(mockSurveyors);
+    setDocuments(mockDocuments);
+    setLegalProcesses(mockLegalProcesses);
+    setAppointments(mockSigningAppointments);
+    setSurveys(mockSurveys);
+    setPermits(mockPermits);
+    setTimelineEvents(mockLotTimelineEvents);
+    setSales(mockSales);
+
     setAutoRules(mockAutomationRules);
     setAutoExecutions(mockAutomationExecutions);
     setAutoNotifications(mockNotifications);
@@ -362,6 +387,8 @@ export function App() {
     setAutoTasks(mockSystemTasks);
     setAutoApprovals(mockApprovalRequests);
     setAutoAuditEvents(mockAuditEvents);
+
+    setActiveModule('operational');
   };
 
   // WALKTHROUGH DEMO TRIGGER HANDLERS
@@ -766,6 +793,7 @@ export function App() {
         onOpenMenu={() => setIsMenuOpen(true)}
         onOpenNotifications={() => setIsNotificationsOpen(true)}
         onOpenOperationalCenter={() => setActiveModule('operational')}
+        onResetDemo={handleResetDemoData}
       />
 
       {/* Main Content Area */}
@@ -793,9 +821,44 @@ export function App() {
 
         {activeModule === 'dashboard' && (
           <DashboardModule
+            userRole={userRole}
+            onSelectRole={setUserRole}
+            lots={lots}
+            leads={leads}
+            sales={sales}
+            paymentPlans={paymentPlans}
+            legalProcesses={legalProcesses}
+            alerts={autoAlerts}
+            sellers={sellers}
+            campaigns={campaigns}
+            quotes={quotes}
+            holds={holds}
+            reservations={reservations}
+            deposits={deposits}
+            documents={documents}
+            developments={developments}
+            commissions={[]}
+            autoRules={autoRules}
+            autoExecutions={autoExecutions}
+            autoTasks={autoTasks}
             onNavigate={(mod) => setActiveModule(mod)}
             onOpenNewLead={() => setIsNewLeadOpen(true)}
             onOpenHoldModal={() => setIsNewHoldOpen(true)}
+          />
+        )}
+
+        {activeModule === 'reports' && (
+          <ReportsModule
+            lots={lots}
+            leads={leads}
+            sales={sales}
+            paymentPlans={paymentPlans}
+            legalProcesses={legalProcesses}
+            sellers={sellers}
+            campaigns={campaigns}
+            quotes={quotes}
+            developments={developments}
+            commissions={[]}
           />
         )}
 
@@ -939,6 +1002,7 @@ export function App() {
         onClose={() => setIsMenuOpen(false)}
         activeModule={activeModule}
         onSelectModule={(mod) => setActiveModule(mod)}
+        onResetDemo={handleResetDemoData}
       />
 
       {/* Walkthrough Modals */}
