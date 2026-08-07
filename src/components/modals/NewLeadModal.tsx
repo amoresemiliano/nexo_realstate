@@ -38,7 +38,7 @@ export const NewLeadModal: React.FC<NewLeadModalProps> = ({
       assignedAgent: 'Gonzalo Rossi',
       qualificationScore: 7,
       createdAt: new Date().toISOString().split('T')[0],
-      lastInteractionAt: new Date().toISOString().split('T')[0],
+      lastActivityAt: new Date().toISOString(),
     });
 
     setFullName('');

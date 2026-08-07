@@ -340,11 +340,17 @@ npm run test
 npm run build
 Despliegue inicial
 
-La primera versión se desplegará como frontend estático en BlueHost.
+La primera versión se despliega como frontend estático mediante **GitHub Pages** (vía GitHub Actions) y es totalmente compatible para ser publicada en un servidor como BlueHost.
 
-El proyecto deberá generar una carpeta de producción compatible con un servidor Apache.
+### GitHub Pages (Demo)
+- **URL**: `https://amoresemiliano.github.io/realstate_integral/`
+- **Workflow**: `.github/workflows/deploy-pages.yml`
+- **Configuración en GitHub**: Ir a `Settings` → `Pages` → `Source: GitHub Actions`.
+- **Rutas de Assets**: Se utiliza `base: './'` en `vite.config.ts` para mantener la portabilidad entre GitHub Pages, servidores estáticos Apache (BlueHost) y desarrollo local.
 
-En caso de utilizar React Router con rutas SPA, deberá incluirse una configuración de reescritura mediante .htaccess.
+### Servidor Apache / BlueHost
+El proyecto genera una carpeta `dist/` compatible con cualquier hosting estático.
+En caso de utilizar React Router con rutas SPA, deberá incluirse una configuración de reescritura mediante `.htaccess`.
 
 Evolución futura
 

@@ -23,7 +23,9 @@ export const DevelopmentsModule: React.FC = () => {
         <h3 className="text-xl font-black text-white">{mockDevelopment.name}</h3>
         <p className="text-xs text-slate-300 flex items-center gap-1.5">
           <MapPin className="w-4 h-4 text-brand-400" />
-          {mockDevelopment.location}
+          {typeof mockDevelopment.location === 'string'
+            ? mockDevelopment.location
+            : `${mockDevelopment.location.address ? mockDevelopment.location.address + ', ' : ''}${mockDevelopment.location.city}, ${mockDevelopment.location.province}`}
         </p>
         <p className="text-xs text-slate-400 pt-2 border-t border-slate-800">
           {mockDevelopment.description}

@@ -4,9 +4,41 @@ import {
   mockLeads,
   mockHolds,
   mockReservations,
-  mockPaymentPlans
+  mockDeposits,
+  mockReservationIntents,
+  mockPaymentPlans,
+  mockSellers,
+  mockCampaigns,
+  mockActivities,
+  mockTasks,
+  mockVisits,
+  mockDevelopments,
+  mockQuotes
 } from './data/mockData';
-import { Lot, Lead, LotHold, Reservation, PaymentPlan } from './types';
+import {
+  Lot,
+  Lead,
+  LotHold,
+  Reservation,
+  Deposit,
+  ReservationIntent,
+  PaymentPlan,
+  Seller,
+  Campaign,
+  ActivityItem,
+  TaskItem,
+  VisitItem,
+  LeadLossReason,
+  Quote,
+  Development,
+  UserRole,
+  LotHoldReason,
+  LotHoldReleaseReason,
+  PaymentMethod,
+  DepositRejectionReason,
+  ReservationCancellationReason
+} from './types';
+import { createDefaultChecklist } from './domain/reservationDomain';
 
 // Components & Layout
 import { Header } from './components/navigation/Header';
@@ -34,29 +66,42 @@ import { LotDetailSheet } from './components/modals/LotDetailSheet';
 import { NotificationsSheet } from './components/modals/NotificationsSheet';
 
 export function App() {
-  // State management
+  // Navigation & Role State
   const [activeModule, setActiveModule] = useState<string>('dashboard');
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
+  const [userRole, setUserRole] = useState<UserRole>('VENDEDOR');
 
-  // Entities state
+  // Core Entities State
   const [lots, setLots] = useState<Lot[]>(mockLots);
   const [leads, setLeads] = useState<Lead[]>(mockLeads);
   const [holds, setHolds] = useState<LotHold[]>(mockHolds);
+  const [deposits, setDeposits] = useState<Deposit[]>(mockDeposits);
+  const [intents, setIntents] = useState<ReservationIntent[]>(mockReservationIntents);
   const [reservations, setReservations] = useState<Reservation[]>(mockReservations);
+
+  const [sellers, setSellers] = useState<Seller[]>(mockSellers);
+  const [campaigns, setCampaigns] = useState<Campaign[]>(mockCampaigns);
+  const [activities, setActivities] = useState<ActivityItem[]>(mockActivities);
+  const [tasks, setTasks] = useState<TaskItem[]>(mockTasks);
+  const [visits, setVisits] = useState<VisitItem[]>(mockVisits);
+  const [developments, setDevelopments] = useState<Development[]>(mockDevelopments);
+  const [quotes, setQuotes] = useState<Quote[]>(mockQuotes);
   const [paymentPlans, setPaymentPlans] = useState<PaymentPlan[]>(mockPaymentPlans);
+  const [favoriteLotIds, setFavoriteLotIds] = useState<string[]>(['lot-a1', 'lot-b2']);
 
   // Modal selections
   const [isNewLeadOpen, setIsNewLeadOpen] = useState(false);
   const [isNewHoldOpen, setIsNewHoldOpen] = useState(false);
   const [selectedLotForDetail, setSelectedLotForDetail] = useState<Lot | null>(null);
   const [quoteLot, setQuoteLot] = useState<Lot | null>(null);
+  const [selectedLeadForContext, setSelectedLeadForContext] = useState<Lead | null>(mockLeads[0] || null);
 
-  // Module Title Dictionary
+  // Module Titles
   const moduleTitles: Record<string, string> = {
     dashboard: 'Dashboard Principal',
     lots: 'Masterplan & Lotes',
-    leads: 'CRM Leads & Oportunidades',
+    leads: 'CRM Leads & Preventa',
     quotes: 'Cotizador & Simulación',
     reservations: 'Señas & Reservas',
     sales: 'Ventas & Contratos',
@@ -68,76 +113,514 @@ export function App() {
     developments: 'Ficha del Desarrollo',
   };
 
-  // Handlers
-  const handleAddLead = (newLeadData: Partial<Lead>) => {
-    const created: Lead = {
-      id: `lead-${Date.now()}`,
-      fullName: newLeadData.fullName || 'Nuevo Lead',
-      email: newLeadData.email || 'lead@ejemplo.com',
-      phone: newLeadData.phone || '+54 11 0000 0000',
-      channel: newLeadData.channel || 'Meta Ads',
-      status: 'NUEVO',
-      budgetUSD: newLeadData.budgetUSD || 30000,
-      assignedAgent: 'Gonzalo Rossi',
-      notes: newLeadData.notes || '',
-      createdAt: new Date().toISOString().split('T')[0],
-      lastInteractionAt: new Date().toISOString().split('T')[0],
-      qualificationScore: 7,
-      interestedBlock: newLeadData.interestedBlock || 'A',
-    };
-    setLeads(prev => [created, ...prev]);
+  // Phase 3 Quote & Favorites Handlers
+  const handleSaveQuote = (newQuote: Quote) => {
+    setQuotes(prev => [newQuote, ...prev]);
   };
 
-  const handleCreateHold = (holdData: { lotId: string; leadId: string; agentName: string; notes: string }) => {
-    const targetLot = lots.find(l => l.id === holdData.lotId);
-    const targetLead = leads.find(l => l.id === holdData.leadId);
+  const handleUpdateQuoteStatus = (quoteId: string, status: Quote['status'], feedbackNotes?: string) => {
+    setQuotes(prev => prev.map(q => {
+      if (q.id === quoteId) {
+        return {
+          ...q,
+          status,
+          notes: feedbackNotes ? `${q.notes || ''} [Feedback: ${feedbackNotes}]` : q.notes
+        };
+      }
+      return q;
+    }));
+  };
+
+  const handleToggleFavorite = (lot: Lot) => {
+    setFavoriteLotIds(prev =>
+      prev.includes(lot.id) ? prev.filter(id => id !== lot.id) : [...prev, lot.id]
+    );
+  };
+
+  const handleAssociateLotWithLead = (
+    lotId: string,
+    leadId: string,
+    isFavorite = true,
+  ) => {
+    setLeads(prev => prev.map(l => {
+      if (l.id === leadId) {
+        const existingFavs = l.favoriteLotIds || [];
+        const updatedFavs = existingFavs.includes(lotId) ? existingFavs : [...existingFavs, lotId];
+        return {
+          ...l,
+          lotInterestIds: l.lotInterestIds.includes(lotId) ? l.lotInterestIds : [...l.lotInterestIds, lotId],
+          favoriteLotIds: isFavorite ? updatedFavs : existingFavs,
+        };
+      }
+      return l;
+    }));
+
+    if (isFavorite && !favoriteLotIds.includes(lotId)) {
+      setFavoriteLotIds(prev => [...prev, lotId]);
+    }
+  };
+
+  // CRM Handlers
+  const handleCreateLead = (newLead: Lead) => {
+    setLeads(prev => [newLead, ...prev]);
+  };
+
+  const handleUpdateLead = (updatedLead: Lead) => {
+    setLeads(prev => prev.map(l => (l.id === updatedLead.id ? updatedLead : l)));
+  };
+
+  const handleAddActivity = (activity: ActivityItem, updatedLeadPartial?: Partial<Lead>, newTask?: TaskItem) => {
+    setActivities(prev => [activity, ...prev]);
+    if (updatedLeadPartial) {
+      setLeads(prev =>
+        prev.map(l => (l.id === activity.leadId ? { ...l, ...updatedLeadPartial, updatedAt: new Date().toISOString() } : l))
+      );
+    }
+    if (newTask) {
+      setTasks(prev => [newTask, ...prev]);
+    }
+  };
+
+  const handleAddVisit = (visit: VisitItem, updatedLeadPartial?: Partial<Lead>) => {
+    setVisits(prev => [visit, ...prev]);
+    if (updatedLeadPartial) {
+      setLeads(prev =>
+        prev.map(l => (l.id === visit.leadId ? { ...l, ...updatedLeadPartial, updatedAt: new Date().toISOString() } : l))
+      );
+    }
+  };
+
+  const handleMarkLoss = (leadId: string, lossReason: LeadLossReason, lossNote: string, recontactDate?: string) => {
+    const now = new Date().toISOString();
+    setLeads(prev =>
+      prev.map(l =>
+        l.id === leadId
+          ? {
+              ...l,
+              status: recontactDate ? 'SEGUIMIENTO_FUTURO' : 'OPORTUNIDAD_PERDIDA',
+              lossReason,
+              lossNote,
+              recontactDate,
+              updatedAt: now
+            }
+          : l
+      )
+    );
+  };
+
+  // ==========================================
+  // PHASE 4: BLOQUEO, SEÑA Y RESERVA HANDLERS
+  // ==========================================
+
+  // 1. Crear Bloqueo Temporal
+  const handleCreateHold = (params: {
+    lotId: string;
+    leadId: string;
+    quoteId?: string;
+    quoteOptionId?: string;
+    durationHours: number;
+    reason: LotHoldReason;
+    notes?: string;
+  }) => {
+    const targetLot = lots.find((l) => l.id === params.lotId);
+    const targetLead = leads.find((l) => l.id === params.leadId);
     if (!targetLot || !targetLead) return;
+
+    const now = new Date();
+    const expiresAt = new Date(now.getTime() + params.durationHours * 3600 * 1000);
 
     const newHold: LotHold = {
       id: `hold-${Date.now()}`,
       lotId: targetLot.id,
-      lotNumber: `${targetLot.block}-${targetLot.number}`,
+      lotNumber: targetLot.number,
       block: targetLot.block,
       leadId: targetLead.id,
       leadName: targetLead.fullName,
-      agentName: holdData.agentName,
-      startDate: new Date().toISOString().replace('T', ' ').slice(0, 16),
-      expiryDate: new Date(Date.now() + 48 * 3600 * 1000).toISOString().replace('T', ' ').slice(0, 16),
+      sellerId: targetLead.assignedSellerId || 's1',
+      agentName: targetLead.assignedAgent || 'Gonzalo Rossi',
+      startsAt: now.toISOString(),
+      expiresAt: expiresAt.toISOString(),
+      startDate: now.toISOString().replace('T', ' ').slice(0, 16),
+      expiryDate: expiresAt.toISOString().replace('T', ' ').slice(0, 16),
+      expiresAtIso: expiresAt.toISOString(),
       status: 'ACTIVO',
-      notes: holdData.notes,
+      reason: params.reason,
+      extensionCount: 0,
+      notes: params.notes,
+      quoteId: params.quoteId,
+      quoteOptionId: params.quoteOptionId,
+      createdAt: now.toISOString(),
+      updatedAt: now.toISOString(),
     };
 
-    setHolds(prev => [newHold, ...prev]);
+    setHolds((prev) => [newHold, ...prev]);
 
-    // Update lot status to BLOQUEADO
-    setLots(prev => prev.map(l => l.id === targetLot.id ? { ...l, status: 'BLOQUEADO', currentHoldId: newHold.id } : l));
+    // Actualizar estado del lote
+    setLots((prev) =>
+      prev.map((l) => (l.id === targetLot.id ? { ...l, status: 'BLOQUEADO', activeHoldId: newHold.id, currentHoldId: newHold.id } : l))
+    );
+
+    // Actividad en CRM
+    setActivities((prev) => [
+      {
+        id: `act-${Date.now()}`,
+        leadId: targetLead.id,
+        type: 'BLOQUEO_CREADO',
+        description: `Bloqueo Temporal Lote ${targetLot.number} por ${params.durationHours}hs (${params.reason}).`,
+        timestamp: new Date().toISOString(),
+        authorName: targetLead.assignedAgent || 'Gonzalo Rossi',
+      },
+      ...prev,
+    ]);
   };
 
-  const handleValidateDeposit = (reservationId: string) => {
-    setReservations(prev => prev.map(r => {
-      if (r.id === reservationId) {
-        return {
-          ...r,
-          status: 'SENA_VALIDADA',
-          validatedBy: 'Tesorería - Aprobación Manual',
-          validatedAt: new Date().toISOString().split('T')[0],
-        };
+  // 2. Registar Promesa de Seña
+  const handleRegisterPromise = (params: {
+    holdId?: string;
+    intentId?: string;
+    promisedAmount: number;
+    currency: 'USD' | 'ARS';
+    paymentMethod: PaymentMethod;
+    promisedDateIso: string;
+    notes?: string;
+  }) => {
+    let targetHold = holds.find((h) => h.id === params.holdId);
+    if (!targetHold && params.intentId) {
+      const intentObj = intents.find((i) => i.id === params.intentId);
+      if (intentObj) {
+        targetHold = holds.find((h) => h.id === intentObj.holdId);
       }
-      return r;
-    }));
+    }
 
-    // Find reservation & lot
-    const targetRes = reservations.find(r => r.id === reservationId);
-    if (targetRes) {
-      setLots(prev => prev.map(l => l.id === targetRes.lotId ? { ...l, status: 'RESERVADO' } : l));
+    if (targetHold) {
+      setHolds((prev) =>
+        prev.map((h) =>
+          h.id === targetHold!.id
+            ? {
+                ...h,
+                notes: `${h.notes || ''} [Promesa de Seña: ${params.promisedAmount} ${params.currency} para el ${params.promisedDateIso.substring(0, 10)}]`,
+              }
+            : h
+        )
+      );
     }
   };
 
-  const handleReleaseHold = (holdId: string) => {
-    const targetHold = holds.find(h => h.id === holdId);
-    setHolds(prev => prev.map(h => h.id === holdId ? { ...h, status: 'LIBERADO' } : h));
+  // 3. Informar Comprobante de Seña
+  const handleReportDeposit = (params: {
+    holdId?: string;
+    intentId?: string;
+    amount: number;
+    currency: 'USD' | 'ARS';
+    paymentMethod: PaymentMethod;
+    receiptReference: string;
+    receiptFileName: string;
+    receiptPreviewUrl?: string;
+    paidAtIso: string;
+    notes?: string;
+  }) => {
+    let targetHold = holds.find((h) => h.id === params.holdId);
+    if (!targetHold && params.intentId) {
+      const intentObj = intents.find((i) => i.id === params.intentId);
+      if (intentObj) {
+        targetHold = holds.find((h) => h.id === intentObj.holdId);
+      }
+    }
+
+    const newDeposit: Deposit = {
+      id: `dep-${Date.now()}`,
+      reservationIntentId: params.intentId || 'intent-default',
+      holdId: targetHold?.id,
+      intentId: params.intentId,
+      lotId: targetHold?.lotId || 'lot-a2',
+      lotNumber: targetHold?.lotNumber || '2',
+      block: targetHold?.block || 'A',
+      leadId: targetHold?.leadId || 'lead-02',
+      leadName: targetHold?.leadName || 'Clara Molina',
+      quoteId: targetHold?.quoteId || 'q-1',
+      amount: params.amount,
+      currency: params.currency,
+      paymentMethod: params.paymentMethod,
+      receiptReference: params.receiptReference,
+      receiptFileName: params.receiptFileName,
+      receiptPreviewUrl:
+        params.receiptPreviewUrl ||
+        'https://images.unsplash.com/photo-1554224155-8d04cb21cd6c?w=600&auto=format&fit=crop&q=60',
+      status: 'EN_VALIDACION',
+      reportedAt: new Date().toISOString(),
+      notes: params.notes,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+
+    setDeposits((prev) => [newDeposit, ...prev]);
+
+    // Actualizar estado del lote a SENADO
     if (targetHold) {
-      setLots(prev => prev.map(l => l.id === targetHold.lotId ? { ...l, status: 'DISPONIBLE', currentHoldId: undefined } : l));
+      setLots((prev) =>
+        prev.map((l) => (l.id === targetHold!.lotId ? { ...l, status: 'SENADO' } : l))
+      );
+    }
+  };
+
+  // 4. Validar Seña (Aprobación por Tesorería -> RESERVA CONFIRMADA)
+  const handleValidateDeposit = (depositId: string) => {
+    const dep = deposits.find((d) => d.id === depositId);
+    if (!dep) return;
+
+    const validatedAt = new Date().toISOString();
+    const reservationNum = `RES-2026-${Math.floor(1000 + Math.random() * 9000)}`;
+
+    // 1. Actualizar deposit
+    setDeposits((prev) =>
+      prev.map((d) =>
+        d.id === depositId
+          ? {
+              ...d,
+              status: 'CONFIRMADA',
+              validatedAt,
+              validatedBy: 'Tesorería & Contabilidad',
+            }
+          : d
+      )
+    );
+
+    // 2. Crear / Actualizar Reserva Confirmada
+    const newReservation: Reservation = {
+      id: `res-${Date.now()}`,
+      reservationNumber: reservationNum,
+      depositId: dep.id,
+      holdId: dep.holdId,
+      lotId: dep.lotId || 'lot-a2',
+      lotNumber: dep.lotNumber || '2',
+      block: dep.block || 'A',
+      leadId: dep.leadId || 'lead-02',
+      leadName: dep.leadName || 'Clara Molina',
+      agreedPrice: 31000,
+      agreedPriceUSD: 31000,
+      currency: 'USD',
+      depositAmount: dep.amount,
+      depositAmountUSD: dep.amount,
+      agentName: 'Gonzalo Rossi',
+      reservedAt: validatedAt,
+      createdAt: validatedAt,
+      status: 'CONFIRMADA',
+      validatedBy: 'Tesorería & Contabilidad',
+      validatedAt,
+      checklist: createDefaultChecklist(),
+      nextStep: 'PREPARAR_DOCUMENTACION',
+      notes: `Seña validada. Referencia: ${dep.receiptReference}`,
+    };
+
+    setReservations((prev) => [newReservation, ...prev]);
+
+    // 3. Actualizar Lote a RESERVADO
+    setLots((prev) =>
+      prev.map((l) => (l.id === dep.lotId ? { ...l, status: 'RESERVADO', currentReservationId: newReservation.id } : l))
+    );
+
+    // 4. Actualizar Lead a RESERVA
+    setLeads((prev) =>
+      prev.map((l) => (l.id === dep.leadId ? { ...l, status: 'RESERVA', updatedAt: validatedAt } : l))
+    );
+
+    // 5. Convertir Hold
+    if (dep.holdId) {
+      setHolds((prev) =>
+        prev.map((h) => (h.id === dep.holdId ? { ...h, status: 'CONVERTIDO' } : h))
+      );
+    }
+  };
+
+  // 5. Observar Comprobante (Tesorería)
+  const handleObserveDeposit = (depositId: string, note: string) => {
+    setDeposits((prev) =>
+      prev.map((d) => (d.id === depositId ? { ...d, status: 'OBSERVADA', observationNote: note } : d))
+    );
+  };
+
+  // 6. Rechazar Comprobante (Tesorería)
+  const handleRejectDeposit = (
+    depositId: string,
+    reason: DepositRejectionReason,
+    note: string,
+    releaseHoldChoice: boolean
+  ) => {
+    const dep = deposits.find((d) => d.id === depositId);
+    if (!dep) return;
+
+    setDeposits((prev) =>
+      prev.map((d) =>
+        d.id === depositId
+          ? {
+              ...d,
+              status: 'RECHAZADA',
+              rejectionReason: reason,
+              observationNote: note,
+            }
+          : d
+      )
+    );
+
+    if (releaseHoldChoice) {
+      setLots((prev) =>
+        prev.map((l) => (l.id === dep.lotId ? { ...l, status: 'DISPONIBLE', activeHoldId: undefined } : l))
+      );
+      if (dep.holdId) {
+        setHolds((prev) =>
+          prev.map((h) => (h.id === dep.holdId ? { ...h, status: 'LIBERADO' } : h))
+        );
+      }
+    } else {
+      setLots((prev) =>
+        prev.map((l) => (l.id === dep.lotId ? { ...l, status: 'BLOQUEADO' } : l))
+      );
+    }
+  };
+
+  // 7. Liberar Lote Manualmente
+  const handleReleaseHold = (
+    holdId: string,
+    releaseReason: LotHoldReleaseReason = 'SENA_NO_RECIBIDA',
+    notes?: string
+  ) => {
+    const targetHold = holds.find((h) => h.id === holdId);
+    setHolds((prev) =>
+      prev.map((h) =>
+        h.id === holdId
+          ? {
+              ...h,
+              status: 'LIBERADO',
+              releaseReason,
+              notes: notes ? `${h.notes || ''} [Liberación: ${notes}]` : h.notes,
+            }
+          : h
+      )
+    );
+
+    if (targetHold) {
+      setLots((prev) =>
+        prev.map((l) => (l.id === targetHold.lotId ? { ...l, status: 'DISPONIBLE', activeHoldId: undefined, currentHoldId: undefined } : l))
+      );
+    }
+  };
+
+  // 8. Checklist Item Toggle
+  const handleToggleChecklist = (resId: string, itemId: string) => {
+    setReservations((prev) =>
+      prev.map((r) => {
+        if (r.id === resId) {
+          const checklist = r.checklist || createDefaultChecklist();
+          const updated = checklist.map((item) =>
+            item.id === itemId ? { ...item, completed: !item.completed, completedAt: !item.completed ? new Date().toISOString() : undefined } : item
+          );
+          return { ...r, checklist: updated };
+        }
+        return r;
+      })
+    );
+  };
+
+  // 9. Cancelar Reserva (Caída de Operación)
+  const handleCancelReservation = (params: {
+    reservationId: string;
+    reason: ReservationCancellationReason;
+    refundDeposit: boolean;
+    notes?: string;
+  }) => {
+    const targetRes = reservations.find((r) => r.id === params.reservationId);
+    if (!targetRes) return;
+
+    setReservations((prev) =>
+      prev.map((r) =>
+        r.id === params.reservationId
+          ? {
+              ...r,
+              status: 'CANCELADA',
+              cancellationReason: params.reason,
+              notes: params.notes ? `${r.notes || ''} [Caída: ${params.notes}]` : r.notes,
+            }
+          : r
+      )
+    );
+
+    setLots((prev) =>
+      prev.map((l) => (l.id === targetRes.lotId ? { ...l, status: 'DISPONIBLE', currentReservationId: undefined } : l))
+    );
+
+    if (targetRes.holdId) {
+      setHolds((prev) =>
+        prev.map((h) => (h.id === targetRes.holdId ? { ...h, status: 'CANCELADO' } : h))
+      );
+    }
+  };
+
+  // 10. Cambiar de Lote (Reemplazo)
+  const handleChangeLot = (params: {
+    entityId: string;
+    entityType: 'HOLD' | 'RESERVATION';
+    newLotId: string;
+    notes?: string;
+  }) => {
+    const newLot = lots.find((l) => l.id === params.newLotId);
+    if (!newLot) return;
+
+    if (params.entityType === 'HOLD') {
+      const targetHold = holds.find((h) => h.id === params.entityId);
+      if (!targetHold) return;
+
+      // 1. Liberar lote anterior
+      setLots((prev) =>
+        prev.map((l) => (l.id === targetHold.lotId ? { ...l, status: 'DISPONIBLE', activeHoldId: undefined } : l))
+      );
+
+      // 2. Bloquear nuevo lote
+      setLots((prev) =>
+        prev.map((l) => (l.id === newLot.id ? { ...l, status: 'BLOQUEADO', activeHoldId: targetHold.id } : l))
+      );
+
+      // 3. Actualizar hold
+      setHolds((prev) =>
+        prev.map((h) =>
+          h.id === params.entityId
+            ? {
+                ...h,
+                lotId: newLot.id,
+                lotNumber: newLot.number,
+                block: newLot.block,
+                notes: `${h.notes || ''} [Cambio de lote desde ${targetHold.lotNumber} a ${newLot.number}]`,
+              }
+            : h
+        )
+      );
+    } else {
+      const targetRes = reservations.find((r) => r.id === params.entityId);
+      if (!targetRes) return;
+
+      // 1. Liberar lote anterior
+      setLots((prev) =>
+        prev.map((l) => (l.id === targetRes.lotId ? { ...l, status: 'DISPONIBLE', currentReservationId: undefined } : l))
+      );
+
+      // 2. Reservar nuevo lote
+      setLots((prev) =>
+        prev.map((l) => (l.id === newLot.id ? { ...l, status: 'RESERVADO', currentReservationId: targetRes.id } : l))
+      );
+
+      // 3. Actualizar reserva
+      setReservations((prev) =>
+        prev.map((r) =>
+          r.id === params.entityId
+            ? {
+                ...r,
+                lotId: newLot.id,
+                lotNumber: newLot.number,
+                block: newLot.block,
+                notes: `${r.notes || ''} [Cambio de lote desde ${targetRes.lotNumber} a ${newLot.number}]`,
+              }
+            : r
+        )
+      );
     }
   };
 
@@ -191,7 +674,13 @@ export function App() {
         {activeModule === 'lots' && (
           <LotsModule
             lots={lots}
+            leads={leads}
+            developments={developments}
+            favoriteLotIds={favoriteLotIds}
+            selectedLead={selectedLeadForContext}
             onSelectLot={(lot) => setSelectedLotForDetail(lot)}
+            onToggleFavorite={handleToggleFavorite}
+            onAssociateLotWithLead={handleAssociateLotWithLead}
             onOpenHoldModalForLot={(lot) => {
               setSelectedLotForDetail(lot);
               setIsNewHoldOpen(true);
@@ -206,22 +695,54 @@ export function App() {
         {activeModule === 'leads' && (
           <LeadsModule
             leads={leads}
-            onOpenNewLead={() => setIsNewLeadOpen(true)}
-            onSelectLead={(lead) => alert(`Perfil de lead: ${lead.fullName}\nTel: ${lead.phone}\nPresupuesto: USD ${lead.budgetUSD}`)}
+            lots={lots}
+            campaigns={campaigns}
+            sellers={sellers}
+            activities={activities}
+            tasks={tasks}
+            visits={visits}
+            onAddLead={handleCreateLead}
+            onUpdateLead={handleUpdateLead}
+            onAddActivity={handleAddActivity}
+            onAddVisit={handleAddVisit}
+            onMarkLoss={handleMarkLoss}
+            onOpenNewLeadModal={() => setIsNewLeadOpen(true)}
           />
         )}
 
         {activeModule === 'quotes' && (
-          <QuotesModule initialLot={quoteLot} lots={lots} />
+          <QuotesModule
+            initialLot={quoteLot}
+            lots={lots}
+            leads={leads}
+            quotes={quotes}
+            onSaveQuote={handleSaveQuote}
+            onUpdateQuoteStatus={handleUpdateQuoteStatus}
+          />
         )}
 
         {activeModule === 'reservations' && (
           <ReservationsModule
             holds={holds}
             reservations={reservations}
-            onOpenHoldModal={() => setIsNewHoldOpen(true)}
+            deposits={deposits}
+            intents={intents}
+            lots={lots}
+            leads={leads}
+            quotes={quotes}
+            userRole={userRole}
+            onChangeUserRole={setUserRole}
+            onCreateHold={handleCreateHold}
+            onRegisterPromise={handleRegisterPromise}
+            onReportDeposit={handleReportDeposit}
             onValidateDeposit={handleValidateDeposit}
+            onObserveDeposit={handleObserveDeposit}
+            onRejectDeposit={handleRejectDeposit}
             onReleaseHold={handleReleaseHold}
+            onToggleChecklist={handleToggleChecklist}
+            onCancelReservation={handleCancelReservation}
+            onChangeLot={handleChangeLot}
+            onPrepareSale={(res) => setActiveModule('sales')}
           />
         )}
 
@@ -264,7 +785,33 @@ export function App() {
       <NewLeadModal
         isOpen={isNewLeadOpen}
         onClose={() => setIsNewLeadOpen(false)}
-        onSubmitLead={handleAddLead}
+        onSubmitLead={(leadData) => {
+          const created: Lead = {
+            id: `lead-${Date.now()}`,
+            firstName: leadData.fullName?.split(' ')[0] || 'Nuevo',
+            lastName: leadData.fullName?.split(' ').slice(1).join(' ') || 'Lead',
+            fullName: leadData.fullName || 'Nuevo Lead',
+            email: leadData.email || 'lead@ejemplo.com',
+            phone: leadData.phone || '+54 11 0000 0000',
+            source: (leadData.channel as any) || 'Meta Ads',
+            channel: leadData.channel || 'Meta Ads',
+            developmentInterestIds: ['dev-001'],
+            lotInterestIds: [],
+            assignedSellerId: 'seller-1',
+            assignedAgent: 'Gonzalo Rossi',
+            status: 'NUEVO',
+            qualification: 'TIBIO',
+            priority: 'ALTA',
+            score: 70,
+            notes: leadData.notes || '',
+            budgetUSD: leadData.budgetUSD || 30000,
+            lastActivityAt: new Date().toISOString(),
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+            tags: ['Meta Ads', 'Carga Directa']
+          };
+          handleCreateLead(created);
+        }}
       />
 
       <NewHoldModal
@@ -273,13 +820,24 @@ export function App() {
         lots={lots}
         leads={leads}
         preselectedLot={selectedLotForDetail}
-        onSubmitHold={handleCreateHold}
+        onSubmitHold={(holdData) => {
+          handleCreateHold({
+            lotId: holdData.lotId,
+            leadId: holdData.leadId,
+            durationHours: 24,
+            reason: 'COTIZACION_ACEPTADA',
+            notes: holdData.notes,
+          });
+        }}
       />
 
       <LotDetailSheet
         lot={selectedLotForDetail}
         isOpen={!!selectedLotForDetail}
         onClose={() => setSelectedLotForDetail(null)}
+        isFavorite={selectedLotForDetail ? favoriteLotIds.includes(selectedLotForDetail.id) : false}
+        selectedLead={selectedLeadForContext}
+        onToggleFavorite={handleToggleFavorite}
         onSimulateQuote={(lot) => {
           setQuoteLot(lot);
           setActiveModule('quotes');
