@@ -44,6 +44,11 @@ export const HoldStatusBadge: React.FC<HoldStatusBadgeProps> = ({ status, size =
       icon: RefreshCw,
       className: 'bg-purple-100 text-purple-900 border-purple-300',
     },
+    SEÑA_REPORTADA: {
+      label: 'Seña Informada',
+      icon: Clock,
+      className: 'bg-blue-100 text-blue-900 border-blue-300 font-bold',
+    },
   };
 
   const config = configs[status] || configs.ACTIVO;

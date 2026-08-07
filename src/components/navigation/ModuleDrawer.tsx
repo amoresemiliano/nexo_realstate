@@ -34,9 +34,15 @@ export const ModuleDrawer: React.FC<ModuleDrawerProps> = ({
 }) => {
   const modulesGrouped = [
     {
+      group: 'Centro Operativo & Control',
+      items: [
+        { id: 'operational', name: 'Centro Operativo Multiactor', icon: ShieldAlert, badge: 'EN VIVO' },
+        { id: 'dashboard', name: 'Dashboard Principal', icon: LayoutDashboard, badge: null },
+      ]
+    },
+    {
       group: 'Gestión Comercial & Preventa',
       items: [
-        { id: 'dashboard', name: 'Dashboard Principal', icon: LayoutDashboard, badge: null },
         { id: 'lots', name: 'Lotes & Masterplan', icon: MapPin, badge: '50 Lotes' },
         { id: 'leads', name: 'CRM Leads & Pipeline', icon: Users, badge: '64 Nuevos' },
         { id: 'campaigns', name: 'Campañas de MKT', icon: Target, badge: '3 Activas' },
@@ -56,7 +62,7 @@ export const ModuleDrawer: React.FC<ModuleDrawerProps> = ({
       items: [
         { id: 'legal', name: 'Escrituración & Legales', icon: Scale, badge: null },
         { id: 'works', name: 'Avance de Obras', icon: HardHat, badge: '4 Obras' },
-        { id: 'automations', name: 'Reglas de Automatización', icon: Zap, badge: '3 Reglas' },
+        { id: 'automations', name: 'Reglas de Automatización', icon: Zap, badge: 'Motor' },
         { id: 'developments', name: 'Ficha del Desarrollo', icon: Building, badge: null },
       ]
     }

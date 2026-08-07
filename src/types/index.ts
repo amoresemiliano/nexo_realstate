@@ -254,7 +254,7 @@ export interface Lead {
   tags: string[];
 }
 
-export type HoldStatus = 'ACTIVO' | 'PROXIMO_A_VENCER' | 'VENCIDO' | 'LIBERADO' | 'CONVERTIDO' | 'CANCELADO' | 'REEMPLAZADO';
+export type HoldStatus = 'ACTIVO' | 'PROXIMO_A_VENCER' | 'VENCIDO' | 'LIBERADO' | 'CONVERTIDO' | 'CANCELADO' | 'REEMPLAZADO' | 'SEÑA_REPORTADA';
 
 export type LotHoldStatus = HoldStatus;
 
@@ -277,6 +277,7 @@ export type LotHoldReleaseReason =
 
 export type ReservationIntentStatus =
   | 'BORRADOR'
+  | 'PENDIENTE'
   | 'CONFIRMADA'
   | 'ESPERANDO_SENA'
   | 'SENA_INFORMADA'
@@ -297,8 +298,10 @@ export type DepositStatus =
   | 'PENDIENTE'
   | 'PROMETIDA'
   | 'INFORMADA'
+  | 'REPORTADA'
   | 'EN_VALIDACION'
   | 'CONFIRMADA'
+  | 'VALIDADA'
   | 'OBSERVADA'
   | 'RECHAZADA'
   | 'CANCELADA'
@@ -355,7 +358,18 @@ export type ReservationCancellationReason =
   | 'INCUMPLIMIENTO_PLAZO'
   | 'OTRO';
 
-export type UserRole = 'COMERCIAL' | 'ADMINISTRACION' | 'ADMIN' | 'VENDEDOR' | 'GERENTE_COMERCIAL';
+export type UserRole =
+  | 'COMERCIAL'
+  | 'ADMINISTRACION'
+  | 'ADMIN'
+  | 'VENDEDOR'
+  | 'GERENTE_COMERCIAL'
+  | 'SUPERVISOR'
+  | 'TESORERIA'
+  | 'LEGAL'
+  | 'OBRAS'
+  | 'GERENCIA'
+  | 'CLIENTE';
 
 export type PaymentStatus = 'AL_DIA' | 'PROXIMO_VENCIMIENTO' | 'VENCIDO' | 'EN_MORA_GRAVE' | 'CANCELADO_ECONOMICAMENTE';
 
@@ -531,6 +545,7 @@ export interface LotHold {
   quoteId?: string;
   quoteOptionId?: string;
   sellerId: string;
+  sellerName?: string;
   agentName: string;
   status: LotHoldStatus;
   reason: LotHoldReason;
@@ -921,6 +936,7 @@ export interface LotDocument {
   legalProcessId?: string;
   type: DocumentType;
   title: string;
+  fileType?: string;
   status: DocumentStatus;
   issuedAt?: string;
   expiresAt?: string;
@@ -945,6 +961,7 @@ export type LegalProcessType =
 
 export type DeedStatus =
   | 'NO_INICIADA'
+  | 'EN_PREPARACION'
   | 'DOCUMENTACION_PENDIENTE'
   | 'PREPARANDO_EXPEDIENTE'
   | 'INFORME_DOMINIO_SOLICITADO'
@@ -1512,3 +1529,303 @@ export interface QuoteRequest {
   currency: 'USD' | 'ARS';
   cacAdjustmentAnnual: number;
 }
+
+// ==========================================
+// PHASE 8: AUTOMATION & MULTI-ACTOR ENGINE TYPES
+// ==========================================
+
+// UserRole is defined at the top of the file
+
+export type DomainEventType =
+  | 'LeadCreated'
+  | 'LeadUncontacted'
+  | 'LeadQualified'
+  | 'VisitScheduled'
+  | 'QuoteSent'
+  | 'QuoteAccepted'
+  | 'HoldCreated'
+  | 'HoldExpiring'
+  | 'DepositReported'
+  | 'DepositConfirmed'
+  | 'ReservationConfirmed'
+  | 'SaleConfirmed'
+  | 'InstallmentDueSoon'
+  | 'InstallmentOverdue'
+  | 'PaymentPromiseExpired'
+  | 'PaymentConfirmed'
+  | 'BalancePaidOff'
+  | 'DocumentMissing'
+  | 'DocumentExpiring'
+  | 'LegalProcessDelayed'
+  | 'SignatureScheduled'
+  | 'DeedRegistered'
+  | 'LotDelivered'
+  | 'OpportunityDetected'
+  | 'SupplierQuoteOverdue'
+  | 'WorkMilestoneOverdue'
+  | 'CriticalIncidentOpened'
+  | 'WorkCompleted'
+  | 'WarrantyExpiring'
+  | 'SubscriptionVisitDue';
+
+export type EntityType =
+  | 'LEAD'
+  | 'HOLD'
+  | 'RESERVATION'
+  | 'SALE'
+  | 'PAYMENT_PLAN'
+  | 'INSTALLMENT'
+  | 'DOCUMENT'
+  | 'LEGAL_PROCESS'
+  | 'LOT'
+  | 'WORK_REQUEST'
+  | 'WORK_ORDER'
+  | 'SUPPLIER_QUOTE'
+  | 'INCIDENT'
+  | 'WARRANTY'
+  | 'SUBSCRIPTION'
+  | 'OPPORTUNITY'
+  | 'APPROVAL'
+  | 'TASK'
+  | 'ALERT'
+  | 'RULE'
+  | 'DEPOSIT';
+
+export interface DomainEvent {
+  id: string;
+  type: DomainEventType;
+  entityType: EntityType;
+  entityId: string;
+  occurredAt?: string;
+  timestamp?: string;
+  actorUserId?: string;
+  actorUserName?: string;
+  actorRole?: UserRole;
+  lotId?: string;
+  lotNumber?: string;
+  customerId?: string;
+  customerName?: string;
+  payload?: Record<string, unknown>;
+  processedAt?: string;
+}
+
+export type AutomationCategory =
+  | 'COMERCIAL'
+  | 'PREVENTA'
+  | 'RESERVAS'
+  | 'COBRANZAS'
+  | 'LEGAL'
+  | 'DOCUMENTAL'
+  | 'TECNICO'
+  | 'OBRAS'
+  | 'PROVEEDORES'
+  | 'POSTVENTA'
+  | 'MANTENIMIENTO'
+  | 'ADMINISTRACION';
+
+export type AutomationRuleStatus = 'ACTIVA' | 'PAUSADA' | 'BORRADOR' | 'DESHABILITADA';
+export type AutomationPriority = 'INFO' | 'BAJA' | 'MEDIA' | 'ALTA' | 'CRITICA';
+
+export interface AutomationCondition {
+  field: string;
+  operator: 'EQUALS' | 'NOT_EQUALS' | 'GREATER_THAN' | 'LESS_THAN' | 'CONTAINS' | 'ELAPSED_HOURS_GREATER_THAN' | 'DAYS_OVERDUE_GREATER_THAN';
+  value: string | number | boolean;
+  description?: string;
+}
+
+export type AutomationActionType =
+  | 'CREATE_TASK'
+  | 'CREATE_ALERT'
+  | 'CREATE_NOTIFICATION'
+  | 'UPDATE_PRIORITY'
+  | 'ASSIGN_RESPONSIBLE'
+  | 'SUGGEST_STATUS_CHANGE'
+  | 'CREATE_OPPORTUNITY'
+  | 'CREATE_CHECKLIST'
+  | 'ESCALATE_CASE'
+  | 'REQUEST_APPROVAL'
+  | 'PREPARE_COMMUNICATION'
+  | 'REGISTER_ACTIVITY'
+  | 'SCHEDULE_FOLLOWUP';
+
+export interface AutomationAction {
+  type: AutomationActionType;
+  targetRole?: UserRole;
+  title: string;
+  description?: string;
+  priority?: AutomationPriority;
+  approvalType?: ApprovalType;
+  payload?: Record<string, unknown>;
+}
+
+export interface AutomationRule {
+  id: string;
+  name: string;
+  description: string;
+  category: AutomationCategory;
+  triggerEvent: DomainEventType;
+  conditions: AutomationCondition[];
+  actions: AutomationAction[];
+  status: AutomationRuleStatus;
+  requiresHumanApproval: boolean;
+  priority: AutomationPriority;
+  responsibleRole: UserRole;
+  createdAt: string;
+  updatedAt: string;
+  lastExecutedAt?: string;
+  executionsCount: number;
+}
+
+export type AutomationExecutionStatus = 'EJECUTADA' | 'PENDIENTE' | 'ESPERANDO_APROBACION' | 'OMITIDA' | 'FALLIDA';
+
+export interface AutomationExecution {
+  id: string;
+  automationRuleId: string;
+  ruleName: string;
+  domainEventId: string;
+  domainEventType: DomainEventType;
+  status: AutomationExecutionStatus;
+  startedAt: string;
+  completedAt?: string;
+  actionResults: {
+    actionType: AutomationActionType;
+    resultSummary: string;
+    targetId?: string;
+  }[];
+  errorMessage?: string;
+  requiresApproval?: boolean;
+  approvalId?: string;
+  approvedByUserId?: string;
+  approvedAt?: string;
+}
+
+export type NotificationCategory =
+  | 'COMERCIAL'
+  | 'COBRANZAS'
+  | 'LEGAL'
+  | 'OBRAS'
+  | 'SISTEMA'
+  | 'RESERVAS'
+  | 'ADMINISTRACION';
+
+export type NotificationSeverity = 'INFO' | 'ATENCION' | 'ALTA' | 'CRITICA';
+
+export interface NotificationItem {
+  id: string;
+  userId?: string;
+  role?: UserRole;
+  title: string;
+  message: string;
+  category: NotificationCategory;
+  severity: NotificationSeverity;
+  entityType?: EntityType;
+  entityId?: string;
+  lotId?: string;
+  lotNumber?: string;
+  actionLabel?: string;
+  actionModule?: string;
+  readAt?: string;
+  createdAt: string;
+}
+
+export type AlertCategory = 'COMERCIAL' | 'FINANCIERO' | 'LEGAL' | 'TECNICO' | 'OBRAS' | 'PROVEEDORES' | 'SISTEMA';
+export type AlertSeverity = 'INFO' | 'ATENCION' | 'ALTA' | 'CRITICA';
+export type AlertStatus = 'NUEVA' | 'EN_GESTION' | 'RESUELTA' | 'IGNORADA' | 'ESCALADA';
+
+export interface AlertItem {
+  id: string;
+  title: string;
+  description: string;
+  category: AlertCategory;
+  severity: AlertSeverity;
+  status: AlertStatus;
+  lotId?: string;
+  lotNumber?: string;
+  entityType?: EntityType;
+  entityId?: string;
+  customerName?: string;
+  responsibleRole: UserRole;
+  responsibleUserId?: string;
+  createdAt: string;
+  resolvedAt?: string;
+  resolvedByUserId?: string;
+  resolutionNote?: string;
+}
+
+export type TaskCategory = 'COMERCIAL' | 'COBRANZAS' | 'ADMINISTRACION' | 'LEGAL' | 'TECNICA' | 'OBRAS' | 'PROVEEDORES' | 'POSTVENTA';
+export type TaskStatus = 'PENDIENTE' | 'EN_CURSO' | 'BLOQUEADA' | 'COMPLETADA' | 'CANCELADA';
+export type TaskPriority = 'INFO' | 'BAJA' | 'MEDIA' | 'ALTA' | 'CRITICA';
+
+export interface SystemTask {
+  id: string;
+  title: string;
+  description?: string;
+  category: TaskCategory;
+  status: TaskStatus;
+  priority: TaskPriority;
+  assignedUserId?: string;
+  assignedUserName?: string;
+  assignedRole?: UserRole;
+  lotId?: string;
+  lotNumber?: string;
+  customerName?: string;
+  entityType?: EntityType;
+  entityId?: string;
+  dueAt?: string;
+  createdByAutomationRuleId?: string;
+  completedAt?: string;
+  completedByUserId?: string;
+  notes?: string;
+  escalated?: boolean;
+}
+
+export type ApprovalType =
+  | 'SEÑA'
+  | 'REFINANCIACION'
+  | 'LIBERACION_EXTRAORDINARIA'
+  | 'CAMBIO_COMERCIAL'
+  | 'SELECCION_PROVEEDOR'
+  | 'COMISION_ESPECIAL'
+  | 'CANCELACION_RESERVA'
+  | 'CORRECCION_ESTADO'
+  | 'RESCISION';
+
+export type ApprovalStatus = 'PENDIENTE' | 'APROBADO' | 'RECHAZADO' | 'OBSERVADO';
+
+export interface ApprovalRequest {
+  id: string;
+  title: string;
+  description: string;
+  type: ApprovalType;
+  requestedByUserId: string;
+  requestedByUserName: string;
+  requestedRole: UserRole;
+  assignedRole: UserRole;
+  lotId?: string;
+  lotNumber?: string;
+  customerName?: string;
+  impact: string;
+  status: ApprovalStatus;
+  createdAt: string;
+  resolvedAt?: string;
+  resolvedByUserId?: string;
+  resolvedByUserName?: string;
+  resolutionNotes?: string;
+  automationRuleId?: string;
+  domainEventId?: string;
+}
+
+export interface AuditEvent {
+  id: string;
+  timestamp: string;
+  userId?: string;
+  userName: string;
+  userRole: UserRole;
+  action: string;
+  entityType: EntityType;
+  entityId: string;
+  previousState?: string;
+  newState?: string;
+  reason?: string;
+}
+

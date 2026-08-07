@@ -25,6 +25,16 @@ import {
   mockSales
 } from './data/mockData';
 import {
+  mockAutomationRules,
+  mockDomainEvents,
+  mockAutomationExecutions,
+  mockNotifications,
+  mockAlerts,
+  mockSystemTasks,
+  mockApprovalRequests,
+  mockAuditEvents
+} from './data/mockAutomationData';
+import {
   Lot,
   Lead,
   LotHold,
@@ -55,14 +65,33 @@ import {
   DeedSigningAppointment,
   LotTimelineEvent,
   Sale,
-  DocumentStatus
+  DocumentStatus,
+  AutomationRule,
+  AutomationExecution,
+  NotificationItem,
+  AlertItem,
+  SystemTask,
+  ApprovalRequest,
+  AuditEvent,
+  DomainEventType,
+  DomainEvent
 } from './types';
 import { createDefaultChecklist } from './domain/reservationDomain';
+import {
+  processDomainEvent,
+  approveHumanDecision,
+  rejectHumanDecision
+} from './domain/automationEngine';
 
 // Components & Layout
 import { Header } from './components/navigation/Header';
 import { BottomNav } from './components/navigation/BottomNav';
 import { ModuleDrawer } from './components/navigation/ModuleDrawer';
+
+// Operational Center & Modals
+import { OperationalCenterView } from './components/operational/OperationalCenterView';
+import { MultiActorWalkthroughModal } from './components/automations/MultiActorWalkthroughModal';
+import { EscalationWalkthroughModal } from './components/automations/EscalationWalkthroughModal';
 
 // Modules
 import { DashboardModule } from './modules/dashboard/DashboardModule';
@@ -87,7 +116,7 @@ import { NotificationsSheet } from './components/modals/NotificationsSheet';
 
 export function App() {
   // Navigation & Role State
-  const [activeModule, setActiveModule] = useState<string>('dashboard');
+  const [activeModule, setActiveModule] = useState<string>('operational');
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
   const [userRole, setUserRole] = useState<UserRole>('VENDEDOR');
@@ -120,6 +149,18 @@ export function App() {
   const [appointments, setAppointments] = useState<DeedSigningAppointment[]>(mockSigningAppointments);
   const [timelineEvents, setTimelineEvents] = useState<LotTimelineEvent[]>(mockLotTimelineEvents);
 
+  // PHASE 8: AUTOMATIONS & OPERATIONAL STATE
+  const [autoRules, setAutoRules] = useState<AutomationRule[]>(mockAutomationRules);
+  const [autoExecutions, setAutoExecutions] = useState<AutomationExecution[]>(mockAutomationExecutions);
+  const [autoNotifications, setAutoNotifications] = useState<NotificationItem[]>(mockNotifications);
+  const [autoAlerts, setAutoAlerts] = useState<AlertItem[]>(mockAlerts);
+  const [autoTasks, setAutoTasks] = useState<SystemTask[]>(mockSystemTasks);
+  const [autoApprovals, setAutoApprovals] = useState<ApprovalRequest[]>(mockApprovalRequests);
+  const [autoAuditEvents, setAutoAuditEvents] = useState<AuditEvent[]>(mockAuditEvents);
+
+  const [isMultiActorWalkthroughOpen, setIsMultiActorWalkthroughOpen] = useState(false);
+  const [isEscalationWalkthroughOpen, setIsEscalationWalkthroughOpen] = useState(false);
+
   const [favoriteLotIds, setFavoriteLotIds] = useState<string[]>(['lot-a1', 'lot-b2']);
 
   // Modal selections
@@ -132,6 +173,7 @@ export function App() {
 
   // Module Titles
   const moduleTitles: Record<string, string> = {
+    operational: 'Centro Operativo Multiactor',
     dashboard: 'Dashboard Principal',
     lots: 'Masterplan & Lotes',
     leads: 'CRM Leads & Preventa',
@@ -146,668 +188,609 @@ export function App() {
     developments: 'Ficha del Desarrollo',
   };
 
-  // Phase 6 Handlers
-  const handleUpdateLegalProcess = (processId: string, updates: Partial<LegalProcess>) => {
-    setLegalProcesses(prev => prev.map(p => p.id === processId ? { ...p, ...updates, updatedAt: new Date().toISOString() } : p));
-  };
-
-  const handleStartLegalProcess = (lotId: string) => {
-    const lotObj = lots.find(l => l.id === lotId);
-    if (!lotObj) return;
-
-    const newProc: LegalProcess = {
-      id: `leg-${Date.now()}`,
-      lotId: lotObj.id,
-      lotNumber: lotObj.number,
-      customerName: 'Titular Registrado',
-      type: 'ESCRITURACION',
-      status: 'EXPEDIENTE_COMPLETO',
-      stage: 'PREPARANDO_EXPEDIENTE',
-      assignedLegalUserId: 'usr-legal-1',
-      assignedLegalUserName: 'Dra. María Elena San Martín',
-      notaryOfficeId: 'notary-01',
-      notaryOfficeName: 'Escribanía Bunge & Asociados',
-      assignedNotary: 'Escribanía Bunge & Asociados',
-      startedAt: new Date().toISOString().split('T')[0],
-      targetDate: '2026-10-30',
-      estimatedCompletion: '2026-10-30',
-      currentStep: 'Expediente iniciado — Documentación en revisión por escribanía',
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
+  // ENGINE HANDLER: Process domain event and update engine state
+  const handleTriggerDomainEvent = (type: DomainEventType, payload?: Record<string, unknown>) => {
+    const newEvent: DomainEvent = {
+      id: `evt-${Date.now()}-${Math.random().toString(36).substring(2, 5)}`,
+      type,
+      entityType: (payload?.entityType as any) || 'LOT',
+      entityId: (payload?.entityId as string) || 'A-4',
+      lotId: (payload?.lotId as string) || 'lot-a4',
+      lotNumber: (payload?.lotNumber as string) || 'A-4',
+      customerId: (payload?.customerId as string) || 'lead-1',
+      customerName: (payload?.customerName as string) || 'Cliente Modelo',
+      actorRole: userRole,
+      actorUserName: 'Usuario Activo',
+      timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      payload: payload || {}
     };
 
-    setLegalProcesses(prev => [newProc, ...prev]);
+    const currentState = {
+      rules: autoRules,
+      executions: autoExecutions,
+      notifications: autoNotifications,
+      alerts: autoAlerts,
+      tasks: autoTasks,
+      approvals: autoApprovals,
+      auditEvents: autoAuditEvents
+    };
 
-    setTimelineEvents(prev => [
+    const { state: nextState } = processDomainEvent(newEvent, currentState, { userId: 'user-1', userName: 'Usuario Activo', userRole });
+
+    setAutoRules(nextState.rules);
+    setAutoExecutions(nextState.executions);
+    setAutoNotifications(nextState.notifications);
+    setAutoAlerts(nextState.alerts);
+    setAutoTasks(nextState.tasks);
+    setAutoApprovals(nextState.approvals);
+    setAutoAuditEvents(nextState.auditEvents);
+  };
+
+  // TASK COMPLETION
+  const handleCompleteSystemTask = (taskId: string) => {
+    setAutoTasks(prev =>
+      prev.map(t => (t.id === taskId ? { ...t, status: 'COMPLETADA', completedAt: 'Ahora' } : t))
+    );
+    setAutoAuditEvents(prev => [
       {
-        id: `evt-${Date.now()}`,
-        lotId: lotObj.id,
-        lotNumber: lotObj.number,
-        category: 'LEGAL',
-        timestamp: new Date().toISOString().replace('T', ' ').slice(0, 16),
-        title: 'Tramitación de Escritura Iniciada',
-        description: 'Se dió inicio al proceso escriturario con Escribanía Bunge & Asociados.',
-        authorName: 'Dra. María Elena San Martín',
+        id: `aud-${Date.now()}`,
+        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+        userId: 'user-1',
+        userRole,
+        userName: 'Usuario Activo',
+        action: 'Tarea Completada',
+        entityType: 'TASK',
+        entityId: taskId,
+        reason: 'Marcada como completada desde el Centro Operativo'
       },
-      ...prev,
+      ...prev
     ]);
   };
 
+  // ALERT RESOLUTION
+  const handleResolveAlert = (alertId: string, note: string) => {
+    setAutoAlerts(prev =>
+      prev.map(a => (a.id === alertId ? { ...a, status: 'RESUELTA' } : a))
+    );
+    setAutoAuditEvents(prev => [
+      {
+        id: `aud-${Date.now()}`,
+        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+        userId: 'user-1',
+        userRole,
+        userName: 'Usuario Activo',
+        action: 'Alerta Resuelta',
+        entityType: 'ALERT',
+        entityId: alertId,
+        reason: note || 'Alerta gestionada y resuelta'
+      },
+      ...prev
+    ]);
+  };
+
+  // APPROVAL HANDLERS
+  const handleApproveDecision = (approvalId: string, note: string) => {
+    const currentState = {
+      rules: autoRules,
+      executions: autoExecutions,
+      notifications: autoNotifications,
+      alerts: autoAlerts,
+      tasks: autoTasks,
+      approvals: autoApprovals,
+      auditEvents: autoAuditEvents
+    };
+
+    const nextState = approveHumanDecision(approvalId, 'user-1', 'Usuario Activo', userRole, note, currentState);
+
+    setAutoExecutions(nextState.executions);
+    setAutoNotifications(nextState.notifications);
+    setAutoAlerts(nextState.alerts);
+    setAutoTasks(nextState.tasks);
+    setAutoApprovals(nextState.approvals);
+    setAutoAuditEvents(nextState.auditEvents);
+  };
+
+  const handleRejectDecision = (approvalId: string, note: string) => {
+    const currentState = {
+      rules: autoRules,
+      executions: autoExecutions,
+      notifications: autoNotifications,
+      alerts: autoAlerts,
+      tasks: autoTasks,
+      approvals: autoApprovals,
+      auditEvents: autoAuditEvents
+    };
+
+    const nextState = rejectHumanDecision(approvalId, 'user-1', 'Usuario Activo', userRole, note, currentState);
+
+    setAutoExecutions(nextState.executions);
+    setAutoNotifications(nextState.notifications);
+    setAutoAlerts(nextState.alerts);
+    setAutoTasks(nextState.tasks);
+    setAutoApprovals(nextState.approvals);
+    setAutoAuditEvents(nextState.auditEvents);
+  };
+
+  // RULE MANAGEMENT HANDLERS
+  const handleToggleRuleStatus = (ruleId: string) => {
+    setAutoRules(prev =>
+      prev.map(r =>
+        r.id === ruleId ? { ...r, status: r.status === 'ACTIVA' ? 'PAUSADA' : 'ACTIVA' } : r
+      )
+    );
+  };
+
+  const handleDuplicateRule = (ruleId: string) => {
+    const found = autoRules.find(r => r.id === ruleId);
+    if (!found) return;
+    const duplicated: AutomationRule = {
+      ...found,
+      id: `rule-${Date.now()}`,
+      name: `${found.name} (Copia)`,
+      executionsCount: 0,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    };
+    setAutoRules(prev => [duplicated, ...prev]);
+  };
+
+  const handleCreateRule = (newRule: Partial<AutomationRule>) => {
+    const ruleObj: AutomationRule = {
+      id: `rule-${Date.now()}`,
+      name: newRule.name || 'Nueva Regla',
+      description: newRule.description || '',
+      category: newRule.category || 'COMERCIAL',
+      triggerEvent: newRule.triggerEvent || 'LeadCreated',
+      conditions: newRule.conditions || [],
+      actions: newRule.actions || [],
+      status: 'ACTIVA',
+      requiresHumanApproval: !!newRule.requiresHumanApproval,
+      priority: newRule.priority || 'MEDIA',
+      responsibleRole: newRule.responsibleRole || 'VENDEDOR',
+      executionsCount: 0,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    };
+    setAutoRules(prev => [ruleObj, ...prev]);
+  };
+
+  const handleResetDemoData = () => {
+    setAutoRules(mockAutomationRules);
+    setAutoExecutions(mockAutomationExecutions);
+    setAutoNotifications(mockNotifications);
+    setAutoAlerts(mockAlerts);
+    setAutoTasks(mockSystemTasks);
+    setAutoApprovals(mockApprovalRequests);
+    setAutoAuditEvents(mockAuditEvents);
+  };
+
+  // WALKTHROUGH DEMO TRIGGER HANDLERS
+  const handleRunFullLifecycleDemo = () => {
+    handleTriggerDomainEvent('LeadUncontacted', { lotNumber: 'A-4', customerName: 'Roberto Gómez' });
+    handleTriggerDomainEvent('QuoteAccepted', { lotNumber: 'A-4', amountUSD: 45000 });
+    handleTriggerDomainEvent('DepositReported', { lotNumber: 'A-4', amountUSD: 1500 });
+    handleTriggerDomainEvent('InstallmentOverdue', { lotNumber: 'B-2', daysOverdue: 15 });
+    handleTriggerDomainEvent('BalancePaidOff', { lotNumber: 'C-1', customerName: 'Analía Rossi' });
+    handleTriggerDomainEvent('LotDelivered', { lotNumber: 'D-5', customerName: 'Gabriel Paz' });
+  };
+
+  const handleRunEscalationDemo = () => {
+    handleTriggerDomainEvent('InstallmentOverdue', { lotNumber: 'B-2', daysOverdue: 35, customerName: 'Mariano Silva' });
+  };
+
+  // Phase 6 Handlers
+  const handleUpdateLegalProcess = (processId: string, updates: Partial<LegalProcess>) => {
+    setLegalProcesses(prev =>
+      prev.map(p => (p.id === processId ? { ...p, ...updates } : p))
+    );
+  };
+
+  const handleStartLegalProcess = (lotId: string, buyerName?: string) => {
+    const existing = legalProcesses.find(p => p.lotId === lotId);
+    if (existing) return;
+    const lot = lots.find(l => l.id === lotId);
+    const newProcess: LegalProcess = {
+      id: `proc-${Date.now()}`,
+      lotId,
+      lotNumber: lot?.number || 'A-1',
+      customerName: buyerName || 'Comprador Modelo',
+      type: 'ESCRITURACION',
+      status: 'EN_PREPARACION',
+      currentStep: 'Iniciado el proceso legal',
+      createdAt: new Date().toISOString().split('T')[0],
+      updatedAt: new Date().toISOString().split('T')[0]
+    };
+    setLegalProcesses(prev => [newProcess, ...prev]);
+  };
+
   const handleUpdateDocumentStatus = (docId: string, status: DocumentStatus) => {
-    setDocuments(prev => prev.map(d => d.id === docId ? { ...d, status, reviewedAt: new Date().toISOString() } : d));
+    setDocuments(prev =>
+      prev.map(d => (d.id === docId ? { ...d, status, reviewedAt: new Date().toISOString().split('T')[0] } : d))
+    );
   };
 
   const handleUploadDocument = (doc: Partial<LotDocument>) => {
     const createdDoc: LotDocument = {
       id: `doc-${Date.now()}`,
-      ownerType: doc.ownerType || 'LOT',
-      ownerId: doc.ownerId || doc.lotId || 'lot-1',
-      lotId: doc.lotId || 'lot-1',
-      lotNumber: doc.lotNumber || 'A-1',
-      type: doc.type || 'DNI',
-      title: doc.title || 'Documento',
-      status: doc.status || 'EN_REVISION',
-      fileName: doc.fileName || 'archivo.pdf',
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
+      ownerType: 'LOT',
+      ownerId: doc.lotId || 'lot-a1',
+      type: 'BOLETO',
+      title: doc.title || 'Nuevo Documento',
+      fileType: 'pdf',
+      fileName: doc.fileName || 'documento.pdf',
+      status: 'EN_REVISION',
+      createdAt: new Date().toISOString().split('T')[0],
+      updatedAt: new Date().toISOString().split('T')[0]
     };
     setDocuments(prev => [createdDoc, ...prev]);
   };
 
-  const handleScheduleSigning = (params: Partial<DeedSigningAppointment>) => {
+  const handleScheduleSigning = (appointmentData: Partial<DeedSigningAppointment>) => {
     const newApp: DeedSigningAppointment = {
-      id: `sign-${Date.now()}`,
-      legalProcessId: params.legalProcessId || 'leg-1',
-      lotId: params.lotId || 'lot-a4',
-      lotNumber: params.lotNumber || 'A-4',
-      customerName: params.customerName || 'Comprador',
-      notaryOfficeId: params.notaryOfficeId || 'notary-01',
-      notaryName: params.notaryName || 'Escribanía Bunge & Asociados',
-      scheduledDate: params.scheduledDate || '2026-08-25',
-      scheduledTime: params.scheduledTime || '11:00 hs',
-      location: params.location || 'Escribanía',
-      representatives: params.representatives || ['Escribano', 'Fiduciario'],
-      requiredDocuments: params.requiredDocuments || ['DNI', 'Boleto'],
+      id: `app-${Date.now()}`,
+      legalProcessId: 'proc-1',
+      lotId: appointmentData.lotId || 'lot-a1',
+      lotNumber: 'A-1',
+      customerName: 'Comprador Modelo',
+      notaryOfficeId: appointmentData.notaryOfficeId || 'notary-1',
+      notaryName: 'Escribanía Bunge',
+      scheduledDate: appointmentData.scheduledDate || '2025-12-15',
+      scheduledTime: appointmentData.scheduledTime || '10:00',
+      location: appointmentData.location || 'Escribanía Bunge, CABA',
+      representatives: ['Apoderado Nexo'],
+      requiredDocuments: ['DNI', 'Boleto'],
       status: 'CONFIRMADA',
-      createdAt: new Date().toISOString(),
+      notes: appointmentData.notes || '',
+      createdAt: new Date().toISOString()
     };
-
     setAppointments(prev => [newApp, ...prev]);
-
-    if (params.legalProcessId) {
-      setLegalProcesses(prev => prev.map(p => p.id === params.legalProcessId ? {
-        ...p,
-        status: 'LISTA_PARA_FIRMA',
-        stage: 'ESCRITURA_FIRMA',
-        currentStep: `Turno de firma agendado para el ${newApp.scheduledDate} a las ${newApp.scheduledTime}`
-      } : p));
-    }
   };
 
   const handleCompleteSigning = (appointmentId: string) => {
-    const app = appointments.find(a => a.id === appointmentId);
-    if (!app) return;
-
-    setAppointments(prev => prev.map(a => a.id === appointmentId ? { ...a, status: 'REALIZADA' } : a));
-
-    if (app.legalProcessId) {
-      setLegalProcesses(prev => prev.map(p => p.id === app.legalProcessId ? {
-        ...p,
-        status: 'FIRMADA',
-        stage: 'ESCRITURA_INSCRIPCION',
-        currentStep: 'Escritura firmada. En proceso de inscripción registral.'
-      } : p));
-    }
-  };
-  const handleSaveQuote = (newQuote: Quote) => {
-    setQuotes(prev => [newQuote, ...prev]);
-  };
-
-  const handleUpdateQuoteStatus = (quoteId: string, status: Quote['status'], feedbackNotes?: string) => {
-    setQuotes(prev => prev.map(q => {
-      if (q.id === quoteId) {
-        return {
-          ...q,
-          status,
-          notes: feedbackNotes ? `${q.notes || ''} [Feedback: ${feedbackNotes}]` : q.notes
-        };
-      }
-      return q;
-    }));
-  };
-
-  const handleToggleFavorite = (lot: Lot) => {
-    setFavoriteLotIds(prev =>
-      prev.includes(lot.id) ? prev.filter(id => id !== lot.id) : [...prev, lot.id]
+    setAppointments(prev =>
+      prev.map(a => (a.id === appointmentId ? { ...a, status: 'REALIZADA' } : a))
     );
   };
 
-  const handleAssociateLotWithLead = (
-    lotId: string,
-    leadId: string,
-    isFavorite = true,
-  ) => {
-    setLeads(prev => prev.map(l => {
-      if (l.id === leadId) {
-        const existingFavs = l.favoriteLotIds || [];
-        const updatedFavs = existingFavs.includes(lotId) ? existingFavs : [...existingFavs, lotId];
-        return {
-          ...l,
-          lotInterestIds: l.lotInterestIds.includes(lotId) ? l.lotInterestIds : [...l.lotInterestIds, lotId],
-          favoriteLotIds: isFavorite ? updatedFavs : existingFavs,
-        };
-      }
-      return l;
-    }));
-
-    if (isFavorite && !favoriteLotIds.includes(lotId)) {
-      setFavoriteLotIds(prev => [...prev, lotId]);
-    }
-  };
-
-  // CRM Handlers
-  const handleCreateLead = (newLead: Lead) => {
-    setLeads(prev => [newLead, ...prev]);
-  };
-
-  const handleUpdateLead = (updatedLead: Lead) => {
-    setLeads(prev => prev.map(l => (l.id === updatedLead.id ? updatedLead : l)));
-  };
-
-  const handleAddActivity = (activity: ActivityItem, updatedLeadPartial?: Partial<Lead>, newTask?: TaskItem) => {
-    setActivities(prev => [activity, ...prev]);
-    if (updatedLeadPartial) {
-      setLeads(prev =>
-        prev.map(l => (l.id === activity.leadId ? { ...l, ...updatedLeadPartial, updatedAt: new Date().toISOString() } : l))
-      );
-    }
-    if (newTask) {
-      setTasks(prev => [newTask, ...prev]);
-    }
-  };
-
-  const handleAddVisit = (visit: VisitItem, updatedLeadPartial?: Partial<Lead>) => {
-    setVisits(prev => [visit, ...prev]);
-    if (updatedLeadPartial) {
-      setLeads(prev =>
-        prev.map(l => (l.id === visit.leadId ? { ...l, ...updatedLeadPartial, updatedAt: new Date().toISOString() } : l))
-      );
-    }
-  };
-
-  const handleMarkLoss = (leadId: string, lossReason: LeadLossReason, lossNote: string, recontactDate?: string) => {
-    const now = new Date().toISOString();
-    setLeads(prev =>
-      prev.map(l =>
-        l.id === leadId
-          ? {
-              ...l,
-              status: recontactDate ? 'SEGUIMIENTO_FUTURO' : 'OPORTUNIDAD_PERDIDA',
-              lossReason,
-              lossNote,
-              recontactDate,
-              updatedAt: now
-            }
-          : l
-      )
-    );
-  };
-
-  // ==========================================
-  // PHASE 4: BLOQUEO, SEÑA Y RESERVA HANDLERS
-  // ==========================================
-
-  // 1. Crear Bloqueo Temporal
-  const handleCreateHold = (params: {
-    lotId: string;
-    leadId: string;
-    quoteId?: string;
-    quoteOptionId?: string;
-    durationHours: number;
-    reason: LotHoldReason;
-    notes?: string;
-  }) => {
-    const targetLot = lots.find((l) => l.id === params.lotId);
-    const targetLead = leads.find((l) => l.id === params.leadId);
-    if (!targetLot || !targetLead) return;
-
-    const now = new Date();
-    const expiresAt = new Date(now.getTime() + params.durationHours * 3600 * 1000);
+  // Phase 4 Reservation Handlers
+  const handleCreateHold = (data: { lotId: string; leadId: string; durationHours: number; reason: LotHoldReason; notes?: string }) => {
+    const lot = lots.find(l => l.id === data.lotId);
+    const lead = leads.find(l => l.id === data.leadId);
+    if (!lot || !lead) return;
 
     const newHold: LotHold = {
       id: `hold-${Date.now()}`,
-      lotId: targetLot.id,
-      lotNumber: targetLot.number,
-      block: targetLot.block,
-      leadId: targetLead.id,
-      leadName: targetLead.fullName,
-      sellerId: targetLead.assignedSellerId || 's1',
-      agentName: targetLead.assignedAgent || 'Gonzalo Rossi',
-      startsAt: now.toISOString(),
-      expiresAt: expiresAt.toISOString(),
-      startDate: now.toISOString().replace('T', ' ').slice(0, 16),
-      expiryDate: expiresAt.toISOString().replace('T', ' ').slice(0, 16),
-      expiresAtIso: expiresAt.toISOString(),
+      lotId: lot.id,
+      lotNumber: lot.number,
+      block: lot.block || 'A',
+      leadId: lead.id,
+      leadName: lead.fullName,
+      sellerId: lead.assignedSellerId || 'seller-1',
+      agentName: lead.assignedAgent || 'Gonzalo Rossi',
+      sellerName: lead.assignedAgent || 'Gonzalo Rossi',
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+      startsAt: new Date().toISOString(),
+      expiresAt: new Date(Date.now() + data.durationHours * 3600 * 1000).toISOString(),
       status: 'ACTIVO',
-      reason: params.reason,
+      reason: data.reason,
       extensionCount: 0,
-      notes: params.notes,
-      quoteId: params.quoteId,
-      quoteOptionId: params.quoteOptionId,
-      createdAt: now.toISOString(),
-      updatedAt: now.toISOString(),
+      notes: data.notes
     };
 
-    setHolds((prev) => [newHold, ...prev]);
+    setHolds(prev => [newHold, ...prev]);
+    setLots(prev => prev.map(l => (l.id === lot.id ? { ...l, status: 'BLOQUEADO' } : l)));
 
-    // Actualizar estado del lote
-    setLots((prev) =>
-      prev.map((l) => (l.id === targetLot.id ? { ...l, status: 'BLOQUEADO', activeHoldId: newHold.id, currentHoldId: newHold.id } : l))
-    );
-
-    // Actividad en CRM
-    setActivities((prev) => [
-      {
-        id: `act-${Date.now()}`,
-        leadId: targetLead.id,
-        type: 'BLOQUEO_CREADO',
-        description: `Bloqueo Temporal Lote ${targetLot.number} por ${params.durationHours}hs (${params.reason}).`,
-        timestamp: new Date().toISOString(),
-        authorName: targetLead.assignedAgent || 'Gonzalo Rossi',
-      },
-      ...prev,
-    ]);
+    // Trigger Phase 8 Domain Event
+    handleTriggerDomainEvent('LeadUncontacted', { lotId: lot.id, lotNumber: lot.number, customerName: lead.fullName });
   };
 
-  // 2. Registar Promesa de Seña
-  const handleRegisterPromise = (params: {
-    holdId?: string;
-    intentId?: string;
-    promisedAmount: number;
-    currency: 'USD' | 'ARS';
-    paymentMethod: PaymentMethod;
-    promisedDateIso: string;
-    notes?: string;
-  }) => {
-    let targetHold = holds.find((h) => h.id === params.holdId);
-    if (!targetHold && params.intentId) {
-      const intentObj = intents.find((i) => i.id === params.intentId);
-      if (intentObj) {
-        targetHold = holds.find((h) => h.id === intentObj.holdId);
-      }
-    }
+  const handleRegisterPromise = (params: any) => {
+    const hold = holds.find(h => h.id === params.holdId);
+    if (!hold) return;
 
-    if (targetHold) {
-      setHolds((prev) =>
-        prev.map((h) =>
-          h.id === targetHold!.id
-            ? {
-                ...h,
-                notes: `${h.notes || ''} [Promesa de Seña: ${params.promisedAmount} ${params.currency} para el ${params.promisedDateIso.substring(0, 10)}]`,
-              }
-            : h
-        )
-      );
-    }
+    const newIntent: ReservationIntent = {
+      id: `intent-${Date.now()}`,
+      holdId: hold.id,
+      lotHoldId: hold.id,
+      lotId: hold.lotId,
+      leadId: hold.leadId,
+      leadName: hold.leadName,
+      quoteId: 'q-1',
+      quoteOptionId: 'qo-1',
+      sellerId: hold.sellerId,
+      expectedDepositAmount: params.promisedAmount || params.expectedAmountUSD || 5000,
+      currency: 'USD',
+      status: 'PENDIENTE',
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+      notes: params.notes
+    };
+
+    setIntents(prev => [newIntent, ...prev]);
   };
 
-  // 3. Informar Comprobante de Seña
-  const handleReportDeposit = (params: {
-    holdId?: string;
-    intentId?: string;
-    amount: number;
-    currency: 'USD' | 'ARS';
-    paymentMethod: PaymentMethod;
-    receiptReference: string;
-    receiptFileName: string;
-    receiptPreviewUrl?: string;
-    paidAtIso: string;
-    notes?: string;
-  }) => {
-    let targetHold = holds.find((h) => h.id === params.holdId);
-    if (!targetHold && params.intentId) {
-      const intentObj = intents.find((i) => i.id === params.intentId);
-      if (intentObj) {
-        targetHold = holds.find((h) => h.id === intentObj.holdId);
-      }
-    }
+  const handleReportDeposit = (params: any) => {
+    const hold = holds.find(h => h.id === params.holdId);
+    if (!hold) return;
+
+    const amount = params.amount || params.amountUSD || 5000;
 
     const newDeposit: Deposit = {
       id: `dep-${Date.now()}`,
-      reservationIntentId: params.intentId || 'intent-default',
-      holdId: targetHold?.id,
-      intentId: params.intentId,
-      lotId: targetHold?.lotId || 'lot-a2',
-      lotNumber: targetHold?.lotNumber || '2',
-      block: targetHold?.block || 'A',
-      leadId: targetHold?.leadId || 'lead-02',
-      leadName: targetHold?.leadName || 'Clara Molina',
-      quoteId: targetHold?.quoteId || 'q-1',
-      amount: params.amount,
-      currency: params.currency,
-      paymentMethod: params.paymentMethod,
-      receiptReference: params.receiptReference,
-      receiptFileName: params.receiptFileName,
-      receiptPreviewUrl:
-        params.receiptPreviewUrl ||
-        'https://images.unsplash.com/photo-1554224155-8d04cb21cd6c?w=600&auto=format&fit=crop&q=60',
-      status: 'EN_VALIDACION',
-      reportedAt: new Date().toISOString(),
+      reservationIntentId: 'intent-1',
+      holdId: hold.id,
+      lotHoldId: hold.id,
+      quoteId: 'q-1',
+      lotId: hold.lotId,
+      lotNumber: hold.lotNumber,
+      leadId: hold.leadId,
+      leadName: hold.leadName,
+      amount,
+      currency: 'USD',
+      paymentMethod: params.paymentMethod || 'TRANSFERENCIA',
+      receiptPreviewUrl: params.receiptPreviewUrl || 'receipt_placeholder.png',
+      receiptReference: params.receiptReference || 'REF-12345',
+      status: 'REPORTADA',
       notes: params.notes,
       createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
     };
 
-    setDeposits((prev) => [newDeposit, ...prev]);
+    setDeposits(prev => [newDeposit, ...prev]);
+    setHolds(prev => prev.map(h => (h.id === hold.id ? { ...h, status: 'SEÑA_REPORTADA' } : h)));
 
-    // Actualizar estado del lote a SENADO
-    if (targetHold) {
-      setLots((prev) =>
-        prev.map((l) => (l.id === targetHold!.lotId ? { ...l, status: 'SENADO' } : l))
-      );
-    }
+    // Trigger Phase 8 Domain Event
+    handleTriggerDomainEvent('DepositReported', { lotId: hold.lotId, lotNumber: hold.lotNumber, customerName: hold.leadName, amountUSD: amount });
   };
 
-  // 4. Validar Seña (Aprobación por Tesorería -> RESERVA CONFIRMADA)
-  const handleValidateDeposit = (depositId: string) => {
-    const dep = deposits.find((d) => d.id === depositId);
+  const handleValidateDeposit = (depositId: string, notes?: string) => {
+    const dep = deposits.find(d => d.id === depositId);
     if (!dep) return;
 
-    const validatedAt = new Date().toISOString();
-    const reservationNum = `RES-2026-${Math.floor(1000 + Math.random() * 9000)}`;
-
-    // 1. Actualizar deposit
-    setDeposits((prev) =>
-      prev.map((d) =>
+    setDeposits(prev =>
+      prev.map(d =>
         d.id === depositId
           ? {
               ...d,
-              status: 'CONFIRMADA',
-              validatedAt,
-              validatedBy: 'Tesorería & Contabilidad',
+              status: 'VALIDADA',
+              validatedAt: new Date().toISOString(),
+              validatedBy: 'TESORERIA',
+              notes: notes || d.notes
             }
           : d
       )
     );
 
-    // 2. Crear / Actualizar Reserva Confirmada
+    setHolds(prev => prev.map(h => (h.id === dep.holdId ? { ...h, status: 'CONVERTIDO' } : h)));
+
     const newReservation: Reservation = {
       id: `res-${Date.now()}`,
-      reservationNumber: reservationNum,
-      depositId: dep.id,
-      holdId: dep.holdId,
-      lotId: dep.lotId || 'lot-a2',
-      lotNumber: dep.lotNumber || '2',
+      reservationNumber: `RES-${Date.now().toString().slice(-4)}`,
+      lotId: dep.lotId,
+      lotNumber: dep.lotNumber || 'A-1',
       block: dep.block || 'A',
-      leadId: dep.leadId || 'lead-02',
-      leadName: dep.leadName || 'Clara Molina',
-      agreedPrice: 31000,
-      agreedPriceUSD: 31000,
+      leadId: dep.leadId,
+      leadName: dep.leadName || 'Cliente',
+      agentName: 'Gonzalo Rossi',
+      agreedPrice: 50000,
       currency: 'USD',
       depositAmount: dep.amount,
       depositAmountUSD: dep.amount,
-      agentName: 'Gonzalo Rossi',
-      reservedAt: validatedAt,
-      createdAt: validatedAt,
+      depositId: dep.id,
+      reservedAt: new Date().toISOString(),
+      expiresAt: new Date(Date.now() + 7 * 24 * 3600 * 1000).toISOString(),
       status: 'CONFIRMADA',
-      validatedBy: 'Tesorería & Contabilidad',
-      validatedAt,
       checklist: createDefaultChecklist(),
-      nextStep: 'PREPARAR_DOCUMENTACION',
-      notes: `Seña validada. Referencia: ${dep.receiptReference}`,
+      notes: 'Reserva confirmada tras validación de seña en Tesorería',
+      createdAt: new Date().toISOString()
     };
 
-    setReservations((prev) => [newReservation, ...prev]);
-
-    // 3. Actualizar Lote a RESERVADO
-    setLots((prev) =>
-      prev.map((l) => (l.id === dep.lotId ? { ...l, status: 'RESERVADO', currentReservationId: newReservation.id } : l))
-    );
-
-    // 4. Actualizar Lead a RESERVA
-    setLeads((prev) =>
-      prev.map((l) => (l.id === dep.leadId ? { ...l, status: 'RESERVA', updatedAt: validatedAt } : l))
-    );
-
-    // 5. Convertir Hold
-    if (dep.holdId) {
-      setHolds((prev) =>
-        prev.map((h) => (h.id === dep.holdId ? { ...h, status: 'CONVERTIDO' } : h))
-      );
-    }
+    setReservations(prev => [newReservation, ...prev]);
+    setLots(prev => prev.map(l => (l.id === dep.lotId ? { ...l, status: 'RESERVADO' } : l)));
   };
 
-  // 5. Observar Comprobante (Tesorería)
-  const handleObserveDeposit = (depositId: string, note: string) => {
-    setDeposits((prev) =>
-      prev.map((d) => (d.id === depositId ? { ...d, status: 'OBSERVADA', observationNote: note } : d))
+  const handleObserveDeposit = (depositId: string, notes: string) => {
+    setDeposits(prev =>
+      prev.map(d => (d.id === depositId ? { ...d, status: 'OBSERVADA', notes } : d))
     );
   };
 
-  // 6. Rechazar Comprobante (Tesorería)
-  const handleRejectDeposit = (
-    depositId: string,
-    reason: DepositRejectionReason,
-    note: string,
-    releaseHoldChoice: boolean
-  ) => {
-    const dep = deposits.find((d) => d.id === depositId);
+  const handleRejectDeposit = (depositId: string, reason: DepositRejectionReason, notes?: string) => {
+    const dep = deposits.find(d => d.id === depositId);
     if (!dep) return;
 
-    setDeposits((prev) =>
-      prev.map((d) =>
+    setDeposits(prev =>
+      prev.map(d =>
         d.id === depositId
           ? {
               ...d,
               status: 'RECHAZADA',
               rejectionReason: reason,
-              observationNote: note,
+              notes: notes || d.notes
             }
           : d
       )
     );
 
-    if (releaseHoldChoice) {
-      setLots((prev) =>
-        prev.map((l) => (l.id === dep.lotId ? { ...l, status: 'DISPONIBLE', activeHoldId: undefined } : l))
-      );
-      if (dep.holdId) {
-        setHolds((prev) =>
-          prev.map((h) => (h.id === dep.holdId ? { ...h, status: 'LIBERADO' } : h))
-        );
-      }
-    } else {
-      setLots((prev) =>
-        prev.map((l) => (l.id === dep.lotId ? { ...l, status: 'BLOQUEADO' } : l))
-      );
-    }
+    setHolds(prev => prev.map(h => (h.id === dep.holdId ? { ...h, status: 'ACTIVO' } : h)));
   };
 
-  // 7. Liberar Lote Manualmente
-  const handleReleaseHold = (
-    holdId: string,
-    releaseReason: LotHoldReleaseReason = 'SENA_NO_RECIBIDA',
-    notes?: string
-  ) => {
-    const targetHold = holds.find((h) => h.id === holdId);
-    setHolds((prev) =>
-      prev.map((h) =>
-        h.id === holdId
-          ? {
-              ...h,
-              status: 'LIBERADO',
-              releaseReason,
-              notes: notes ? `${h.notes || ''} [Liberación: ${notes}]` : h.notes,
-            }
-          : h
-      )
+  const handleReleaseHold = (holdId: string, reason: LotHoldReleaseReason) => {
+    const hold = holds.find(h => h.id === holdId);
+    if (!hold) return;
+
+    setHolds(prev =>
+      prev.map(h => (h.id === holdId ? { ...h, status: 'LIBERADO', releaseReason: reason } : h))
     );
 
-    if (targetHold) {
-      setLots((prev) =>
-        prev.map((l) => (l.id === targetHold.lotId ? { ...l, status: 'DISPONIBLE', activeHoldId: undefined, currentHoldId: undefined } : l))
-      );
-    }
+    setLots(prev => prev.map(l => (l.id === hold.lotId ? { ...l, status: 'DISPONIBLE' } : l)));
   };
 
-  // 8. Checklist Item Toggle
-  const handleToggleChecklist = (resId: string, itemId: string) => {
-    setReservations((prev) =>
-      prev.map((r) => {
-        if (r.id === resId) {
-          const checklist = r.checklist || createDefaultChecklist();
-          const updated = checklist.map((item) =>
-            item.id === itemId ? { ...item, completed: !item.completed, completedAt: !item.completed ? new Date().toISOString() : undefined } : item
-          );
-          return { ...r, checklist: updated };
-        }
-        return r;
+  const handleToggleChecklist = (reservationId: string, itemId: string) => {
+    setReservations(prev =>
+      prev.map(r => {
+        if (r.id !== reservationId) return r;
+        if (!r.checklist) return r;
+        return {
+          ...r,
+          checklist: r.checklist.map(c =>
+            c.id === itemId ? { ...c, completed: !c.completed, completedAt: !c.completed ? new Date().toISOString() : undefined } : c
+          )
+        };
       })
     );
   };
 
-  // 9. Cancelar Reserva (Caída de Operación)
-  const handleCancelReservation = (params: {
-    reservationId: string;
-    reason: ReservationCancellationReason;
-    refundDeposit: boolean;
-    notes?: string;
-  }) => {
-    const targetRes = reservations.find((r) => r.id === params.reservationId);
-    if (!targetRes) return;
+  const handleCancelReservation = (
+    paramsOrId: { reservationId: string; reason: ReservationCancellationReason; refundDeposit?: boolean; notes?: string } | string,
+    reasonArg?: ReservationCancellationReason,
+    notesArg?: string
+  ) => {
+    const reservationId = typeof paramsOrId === 'string' ? paramsOrId : paramsOrId.reservationId;
+    const reason = typeof paramsOrId === 'string' ? reasonArg! : paramsOrId.reason;
+    const notes = typeof paramsOrId === 'string' ? notesArg : paramsOrId.notes;
 
-    setReservations((prev) =>
-      prev.map((r) =>
-        r.id === params.reservationId
-          ? {
-              ...r,
-              status: 'CANCELADA',
-              cancellationReason: params.reason,
-              notes: params.notes ? `${r.notes || ''} [Caída: ${params.notes}]` : r.notes,
-            }
-          : r
-      )
+    const res = reservations.find(r => r.id === reservationId);
+    if (!res) return;
+
+    setReservations(prev =>
+      prev.map(r => (r.id === reservationId ? { ...r, status: 'CANCELADA', cancellationReason: reason, notes } : r))
     );
 
-    setLots((prev) =>
-      prev.map((l) => (l.id === targetRes.lotId ? { ...l, status: 'DISPONIBLE', currentReservationId: undefined } : l))
-    );
-
-    if (targetRes.holdId) {
-      setHolds((prev) =>
-        prev.map((h) => (h.id === targetRes.holdId ? { ...h, status: 'CANCELADO' } : h))
-      );
-    }
+    setLots(prev => prev.map(l => (l.id === res.lotId ? { ...l, status: 'DISPONIBLE' } : l)));
   };
 
-  // 10. Cambiar de Lote (Reemplazo)
-  const handleChangeLot = (params: {
-    entityId: string;
-    entityType: 'HOLD' | 'RESERVATION';
-    newLotId: string;
-    notes?: string;
-  }) => {
-    const newLot = lots.find((l) => l.id === params.newLotId);
+  const handleChangeLot = (
+    paramsOrId: { entityId: string; entityType?: 'HOLD' | 'RESERVATION'; newLotId: string; notes?: string } | string,
+    newLotIdArg?: string
+  ) => {
+    const reservationId = typeof paramsOrId === 'string' ? paramsOrId : paramsOrId.entityId;
+    const newLotId = typeof paramsOrId === 'string' ? newLotIdArg! : paramsOrId.newLotId;
+
+    const newLot = lots.find(l => l.id === newLotId);
     if (!newLot) return;
 
-    if (params.entityType === 'HOLD') {
-      const targetHold = holds.find((h) => h.id === params.entityId);
-      if (!targetHold) return;
+    setReservations(prev =>
+      prev.map(r => {
+        if (r.id !== reservationId) return r;
+        return {
+          ...r,
+          lotId: newLot.id,
+          lotNumber: newLot.number,
+          notes: `${r.notes || ''} [Cambio de lote a ${newLot.number}]`
+        };
+      })
+    );
+  };
 
-      // 1. Liberar lote anterior
-      setLots((prev) =>
-        prev.map((l) => (l.id === targetHold.lotId ? { ...l, status: 'DISPONIBLE', activeHoldId: undefined } : l))
-      );
+  // Other Core Handlers
+  const handleToggleFavorite = (lotOrId: Lot | string) => {
+    const lotId = typeof lotOrId === 'string' ? lotOrId : lotOrId.id;
+    setFavoriteLotIds(prev =>
+      prev.includes(lotId) ? prev.filter(id => id !== lotId) : [...prev, lotId]
+    );
+  };
 
-      // 2. Bloquear nuevo lote
-      setLots((prev) =>
-        prev.map((l) => (l.id === newLot.id ? { ...l, status: 'BLOQUEADO', activeHoldId: targetHold.id } : l))
-      );
+  const handleAssociateLotWithLead = (
+    lotOrId: Lot | string,
+    leadId?: string
+  ) => {
+    const lotId = typeof lotOrId === 'string' ? lotOrId : lotOrId.id;
+    const targetLeadId = leadId || selectedLeadForContext?.id;
+    if (!targetLeadId) return;
+    setLeads(prev =>
+      prev.map(l =>
+        l.id === targetLeadId
+          ? { ...l, lotInterestIds: Array.from(new Set([...(l.lotInterestIds || []), lotId])) }
+          : l
+      )
+    );
+  };
 
-      // 3. Actualizar hold
-      setHolds((prev) =>
-        prev.map((h) =>
-          h.id === params.entityId
-            ? {
-                ...h,
-                lotId: newLot.id,
-                lotNumber: newLot.number,
-                block: newLot.block,
-                notes: `${h.notes || ''} [Cambio de lote desde ${targetHold.lotNumber} a ${newLot.number}]`,
-              }
-            : h
-        )
-      );
+  const handleCreateLead = (newLead: Lead) => {
+    setLeads(prev => [newLead, ...prev]);
+  };
+
+  const handleUpdateLead = (leadOrId: Lead | string, updates?: Partial<Lead>) => {
+    if (typeof leadOrId === 'string') {
+      if (!updates) return;
+      setLeads(prev => prev.map(l => (l.id === leadOrId ? { ...l, ...updates } : l)));
     } else {
-      const targetRes = reservations.find((r) => r.id === params.entityId);
-      if (!targetRes) return;
-
-      // 1. Liberar lote anterior
-      setLots((prev) =>
-        prev.map((l) => (l.id === targetRes.lotId ? { ...l, status: 'DISPONIBLE', currentReservationId: undefined } : l))
-      );
-
-      // 2. Reservar nuevo lote
-      setLots((prev) =>
-        prev.map((l) => (l.id === newLot.id ? { ...l, status: 'RESERVADO', currentReservationId: targetRes.id } : l))
-      );
-
-      // 3. Actualizar reserva
-      setReservations((prev) =>
-        prev.map((r) =>
-          r.id === params.entityId
-            ? {
-                ...r,
-                lotId: newLot.id,
-                lotNumber: newLot.number,
-                block: newLot.block,
-                notes: `${r.notes || ''} [Cambio de lote desde ${targetRes.lotNumber} a ${newLot.number}]`,
-              }
-            : r
-        )
-      );
+      setLeads(prev => prev.map(l => (l.id === leadOrId.id ? { ...l, ...leadOrId } : l)));
     }
   };
 
-  const handleLogPayment = (planId: string, installmentNumber: number) => {
-    setPaymentPlans(prev => prev.map(plan => {
-      if (plan.id === planId) {
-        const updatedInstallments = plan.installments.map(inst => {
-          if (inst.number === installmentNumber) {
-            return {
-              ...inst,
-              status: 'PAGADO' as const,
-              paidDate: new Date().toISOString().split('T')[0],
-            };
-          }
-          return inst;
-        });
-
-        const paidCount = updatedInstallments.filter(i => i.status === 'PAGADO').length;
-        const hasOverdue = updatedInstallments.some(i => i.status === 'VENCIDO');
-
-        return {
-          ...plan,
-          paidInstallmentsCount: paidCount,
-          status: hasOverdue ? ('VENCIDO' as const) : ('AL_DIA' as const),
-          installments: updatedInstallments,
-        };
-      }
-      return plan;
-    }));
+  const handleAddActivity = (act: ActivityItem) => {
+    setActivities(prev => [act, ...prev]);
   };
+
+  const handleAddVisit = (vst: VisitItem) => {
+    setVisits(prev => [vst, ...prev]);
+  };
+
+  const handleMarkLoss = (leadId: string, reason: LeadLossReason, notes?: string) => {
+    setLeads(prev =>
+      prev.map(l => (l.id === leadId ? { ...l, status: 'PERDIDO', notes: notes || '' } : l))
+    );
+  };
+
+  const handleSaveQuote = (q: Quote) => {
+    setQuotes(prev => [q, ...prev]);
+  };
+
+  const handleUpdateQuoteStatus = (quoteId: string, status: Quote['status']) => {
+    setQuotes(prev => prev.map(q => (q.id === quoteId ? { ...q, status } : q)));
+    if (status === 'ACEPTADA') {
+      const q = quotes.find(item => item.id === quoteId);
+      if (q) {
+        handleTriggerDomainEvent('QuoteAccepted', { lotId: q.options[0]?.lotId || 'lot-a1', amountUSD: q.options[0]?.offeredPrice || 45000 });
+      }
+    }
+  };
+
+  const handleLogPayment = (paymentData: any) => {
+    // Payment logging logic
+  };
+
+  // Unread Notification Count
+  const unreadCount = autoNotifications.filter(n => !n.readAt).length;
 
   return (
     <div className="min-h-screen bg-slate-100 flex flex-col font-sans text-slate-900 pb-20">
       {/* Top Mobile Header */}
       <Header
         activeModuleTitle={moduleTitles[activeModule] || 'Nexo Desarrollos'}
+        userRole={userRole}
+        unreadCount={unreadCount}
         onOpenMenu={() => setIsMenuOpen(true)}
         onOpenNotifications={() => setIsNotificationsOpen(true)}
+        onOpenOperationalCenter={() => setActiveModule('operational')}
       />
 
       {/* Main Content Area */}
-      <main className="flex-1 max-w-lg w-full mx-auto px-3.5 py-4">
+      <main className="flex-1 max-w-xl w-full mx-auto px-3 sm:px-4 py-4">
+        {activeModule === 'operational' && (
+          <OperationalCenterView
+            userRole={userRole}
+            onSelectRole={setUserRole}
+            tasks={autoTasks}
+            alerts={autoAlerts}
+            approvals={autoApprovals}
+            notifications={autoNotifications}
+            auditEvents={autoAuditEvents}
+            rules={autoRules}
+            onCompleteTask={handleCompleteSystemTask}
+            onResolveAlert={handleResolveAlert}
+            onApproveDecision={handleApproveDecision}
+            onRejectDecision={handleRejectDecision}
+            onNavigateModule={(mod) => setActiveModule(mod)}
+            onTriggerDemoWalkthrough={() => setIsMultiActorWalkthroughOpen(true)}
+            onTriggerEscalationDemo={() => setIsEscalationWalkthroughOpen(true)}
+            onResetDemoData={handleResetDemoData}
+          />
+        )}
+
         {activeModule === 'dashboard' && (
           <DashboardModule
             onNavigate={(mod) => setActiveModule(mod)}
@@ -927,7 +910,18 @@ export function App() {
 
         {activeModule === 'campaigns' && <CampaignsModule />}
 
-        {activeModule === 'automations' && <AutomationsModule />}
+        {activeModule === 'automations' && (
+          <AutomationsModule
+            rules={autoRules}
+            executions={autoExecutions}
+            onToggleRuleStatus={handleToggleRuleStatus}
+            onDuplicateRule={handleDuplicateRule}
+            onCreateRule={handleCreateRule}
+            onTriggerEvent={handleTriggerDomainEvent}
+            onOpenMultiActorWalkthrough={() => setIsMultiActorWalkthroughOpen(true)}
+            onOpenEscalationWalkthrough={() => setIsEscalationWalkthroughOpen(true)}
+          />
+        )}
 
         {activeModule === 'developments' && <DevelopmentsModule />}
       </main>
@@ -945,6 +939,19 @@ export function App() {
         onClose={() => setIsMenuOpen(false)}
         activeModule={activeModule}
         onSelectModule={(mod) => setActiveModule(mod)}
+      />
+
+      {/* Walkthrough Modals */}
+      <MultiActorWalkthroughModal
+        isOpen={isMultiActorWalkthroughOpen}
+        onClose={() => setIsMultiActorWalkthroughOpen(false)}
+        onExecuteFullLifecycleDemo={handleRunFullLifecycleDemo}
+      />
+
+      <EscalationWalkthroughModal
+        isOpen={isEscalationWalkthroughOpen}
+        onClose={() => setIsEscalationWalkthroughOpen(false)}
+        onExecuteEscalationDemo={handleRunEscalationDemo}
       />
 
       {/* Modals & Bottom Sheets */}
@@ -1004,6 +1011,7 @@ export function App() {
         isFavorite={selectedLotForDetail ? favoriteLotIds.includes(selectedLotForDetail.id) : false}
         selectedLead={selectedLeadForContext}
         onToggleFavorite={handleToggleFavorite}
+        onAssociateLead={(lot) => handleAssociateLotWithLead(lot)}
         onOpen360View={(lot) => setSelected360Lot(lot)}
         onSimulateQuote={(lot) => {
           setQuoteLot(lot);
@@ -1047,6 +1055,10 @@ export function App() {
       <NotificationsSheet
         isOpen={isNotificationsOpen}
         onClose={() => setIsNotificationsOpen(false)}
+        notifications={autoNotifications}
+        userRole={userRole}
+        onMarkAllAsRead={() => setAutoNotifications(prev => prev.map(n => ({ ...n, readAt: new Date().toISOString() })))}
+        onMarkAsRead={(id) => setAutoNotifications(prev => prev.map(n => (n.id === id ? { ...n, readAt: new Date().toISOString() } : n)))}
         onNavigate={(mod) => setActiveModule(mod)}
       />
     </div>
