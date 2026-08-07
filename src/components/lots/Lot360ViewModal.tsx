@@ -46,7 +46,11 @@ import {
   HelpCircle,
   TrendingUp,
   MessageSquare,
-  CheckSquare
+  CheckSquare,
+  HardHat,
+  Sparkles,
+  ShieldCheck,
+  Repeat
 } from 'lucide-react';
 
 interface Lot360ViewModalProps {
@@ -104,7 +108,7 @@ export const Lot360ViewModal: React.FC<Lot360ViewModalProps> = ({
 }) => {
   if (!isOpen || !lot) return null;
 
-  const [activeTab, setActiveTab] = useState<'RESUMEN' | 'DOCUMENTOS' | 'LEGAL' | 'TECNICO' | 'TIMELINE' | 'TAREAS'>('RESUMEN');
+  const [activeTab, setActiveTab] = useState<'RESUMEN' | 'DOCUMENTOS' | 'LEGAL' | 'TECNICO' | 'OBRAS_POSTVENTA' | 'TIMELINE' | 'TAREAS'>('RESUMEN');
   const [docFilterCategory, setDocFilterCategory] = useState<string>('TODOS');
 
   // Modals inside 360
@@ -314,6 +318,7 @@ export const Lot360ViewModal: React.FC<Lot360ViewModalProps> = ({
             { id: 'DOCUMENTOS', label: `Checklist Docs (${lotDocs.filter(d=>d.status==='APROBADO').length}/${lotDocs.length})`, icon: FileText },
             { id: 'LEGAL', label: 'Escrituración & Legal', icon: Scale },
             { id: 'TECNICO', label: 'Agrimensura & Permisos', icon: Building },
+            { id: 'OBRAS_POSTVENTA', label: 'Obras & Postventa', icon: HardHat },
             { id: 'TIMELINE', label: 'Timeline Unificada', icon: Clock },
             { id: 'TAREAS', label: 'Tareas & Notas', icon: CheckSquare },
           ].map(tab => {
@@ -725,6 +730,57 @@ export const Lot360ViewModal: React.FC<Lot360ViewModalProps> = ({
                   ))}
                 </div>
               </Card>
+            </div>
+          )}
+
+          {/* TAB: OBRAS & POSTVENTA */}
+          {activeTab === 'OBRAS_POSTVENTA' && (
+            <div className="space-y-4">
+              <Card padding="md" className="space-y-3 bg-gradient-to-r from-slate-900 to-slate-800 text-white">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <HardHat className="w-5 h-5 text-amber-400" />
+                    <div>
+                      <h3 className="text-sm font-black text-white">Trazabilidad Postventa & Servicios del Lote {lot.block}-{lot.number}</h3>
+                      <p className="text-xs text-slate-300">Obras contratadas, garantías vigentes y abonos de mantenimiento</p>
+                    </div>
+                  </div>
+                  <Badge variant="brand">Nexo Postventa</Badge>
+                </div>
+              </Card>
+
+              {/* Summary Cards */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                <Card padding="md" className="space-y-2">
+                  <span className="text-xs font-black text-slate-700 uppercase flex items-center gap-1">
+                    <Sparkles className="w-3.5 h-3.5 text-amber-500" /> Oportunidades Detectadas
+                  </span>
+                  <p className="text-xs text-slate-600">
+                    Cerco Perimetral Olímpico, Movimiento de suelos, Parquización.
+                  </p>
+                  <Badge variant="warning" className="text-[10px]">1 Oportunidad Activa</Badge>
+                </Card>
+
+                <Card padding="md" className="space-y-2">
+                  <span className="text-xs font-black text-slate-700 uppercase flex items-center gap-1">
+                    <HardHat className="w-3.5 h-3.5 text-blue-500" /> Obras en Ejecución
+                  </span>
+                  <p className="text-xs text-slate-600">
+                    Orden de Trabajo #WO-701 — Cerco Perimetral (Avance 100%).
+                  </p>
+                  <Badge variant="success" className="text-[10px]">Finalizada con Éxito</Badge>
+                </Card>
+
+                <Card padding="md" className="space-y-2">
+                  <span className="text-xs font-black text-slate-700 uppercase flex items-center gap-1">
+                    <ShieldCheck className="w-3.5 h-3.5 text-emerald-500" /> Garantía Oficial
+                  </span>
+                  <p className="text-xs text-slate-600">
+                    Garantía por escrito de 24 meses vigente hasta Agosto 2028.
+                  </p>
+                  <Badge variant="success" className="text-[10px]">Garantía Vigente</Badge>
+                </Card>
+              </div>
             </div>
           )}
 

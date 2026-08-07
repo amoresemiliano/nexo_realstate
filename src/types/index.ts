@@ -1120,6 +1120,389 @@ export interface LegalConfig {
   minDocumentProgressPercent: number;
 }
 
+// Phase 7: Obras, Proveedores, Postventa & Comisiones
+
+export type ServiceCategory =
+  | 'PREPARACION_TERRENO'
+  | 'CERRAMIENTOS_LIMITES'
+  | 'AGUA_RIEGO'
+  | 'EXTERIOR_PAISAJISMO'
+  | 'ENERGIA_SOLAR'
+  | 'CONSTRUCCION_PROYECTO'
+  | 'SERVICIOS_RECURRENTES'
+  | 'OTRO';
+
+export type OpportunitySource =
+  | 'SISTEMA'
+  | 'COMERCIAL'
+  | 'CLIENTE'
+  | 'PROVEEDOR'
+  | 'OBRA_PREVIA'
+  | 'INSPECCION'
+  | 'POST_ENTREGA'
+  | 'CAMPAÑA';
+
+export type PostSaleOpportunityStatus =
+  | 'DETECTADA'
+  | 'SUGERIDA'
+  | 'CONTACTADO'
+  | 'INTERESADO'
+  | 'RELEVAMIENTO_REQUERIDO'
+  | 'COTIZANDO'
+  | 'PROPUESTA_ENVIADA'
+  | 'NEGOCIANDO'
+  | 'APROBADA'
+  | 'PERDIDA'
+  | 'POSTERGADA'
+  | 'CONVERTIDA';
+
+export interface PostSaleOpportunity {
+  id: string;
+  lotId: string;
+  lotNumber?: string;
+  customerId: string;
+  customerName?: string;
+  saleId?: string;
+  category: ServiceCategory;
+  title: string;
+  description?: string;
+  source: OpportunitySource;
+  status: PostSaleOpportunityStatus;
+  estimatedValue?: number;
+  currency?: 'ARS' | 'USD';
+  detectedAt: string;
+  suggestedAt?: string;
+  interestedAt?: string;
+  ownerUserId?: string;
+  nextActionAt?: string;
+  triggerReason?: string;
+  notes?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export type WorkRequestStatus =
+  | 'NUEVA'
+  | 'EN_REVISION'
+  | 'RELEVAMIENTO_REQUERIDO'
+  | 'RELEVAMIENTO_AGENDADO'
+  | 'LISTA_PARA_COTIZAR'
+  | 'COTIZANDO'
+  | 'PROPUESTA_ENVIADA'
+  | 'APROBADA'
+  | 'RECHAZADA'
+  | 'CONVERTIDA_EN_OBRA'
+  | 'CANCELADA';
+
+export type RequestSource = 'CLIENTE' | 'COMERCIAL' | 'COORDINADOR' | 'SISTEMA';
+
+export interface WorkRequest {
+  id: string;
+  opportunityId?: string;
+  lotId: string;
+  lotNumber?: string;
+  customerId: string;
+  customerName?: string;
+  category: ServiceCategory;
+  title: string;
+  description: string;
+  status: WorkRequestStatus;
+  priority: 'ALTA' | 'MEDIA' | 'BAJA' | 'URGENTE';
+  requestedAt: string;
+  requestedBy: RequestSource;
+  preferredStartDate?: string;
+  budgetExpectation?: number;
+  currency?: 'ARS' | 'USD';
+  siteVisitRequired: boolean;
+  assignedCoordinatorId?: string;
+  assignedCoordinatorName?: string;
+  notes?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface TechnicalSurvey {
+  id: string;
+  workRequestId: string;
+  lotId: string;
+  lotNumber?: string;
+  assignedUserId?: string;
+  assignedUserName?: string;
+  assignedProviderId?: string;
+  assignedProviderName?: string;
+  scheduledAt: string;
+  completedAt?: string;
+  status: 'PENDIENTE' | 'AGENDADO' | 'REALIZADO' | 'REQUIERE_REVISION' | 'APROBADO';
+  measurements?: string;
+  terrainStatus?: string;
+  accessInfo?: string;
+  restrictions?: string;
+  recommendations?: string;
+  simulatedPhotos?: string[];
+  notes?: string;
+  createdAt: string;
+}
+
+export type ProviderStatus = 'ACTIVO' | 'EN_EVALUACION' | 'SUSPENDIDO' | 'DOCUMENTACION_VENCIDA' | 'INACTIVO';
+export type ProviderDocumentationStatus = 'COMPLETA' | 'PENDIENTE' | 'OBSERVADA' | 'VENCIDA';
+export type CommissionModel = 'PERCENTAGE' | 'MARKUP' | 'FIXED_FEE' | 'MANAGEMENT_FEE' | 'NONE';
+
+export interface ProviderDocument {
+  id: string;
+  providerId: string;
+  type: 'CUIT' | 'CONSTANCIA_FISCAL' | 'SEGURO' | 'ART' | 'MATRICULA' | 'HABILITACION' | 'CBU_BANCARIO' | 'OTRO';
+  title: string;
+  status: 'VIGENTE' | 'PENDIENTE' | 'OBSERVADO' | 'VENCIDO';
+  expiresAt?: string;
+  fileUrl?: string;
+}
+
+export interface Provider {
+  id: string;
+  organizationName: string;
+  contactName?: string;
+  categoryIds: ServiceCategory[];
+  phone?: string;
+  email?: string;
+  coverageAreas: string[];
+  status: ProviderStatus;
+  rating?: number;
+  completedWorks: number;
+  averageResponseHours?: number;
+  documentationStatus: ProviderDocumentationStatus;
+  commissionModel?: CommissionModel;
+  defaultCommissionRate?: number;
+  documents?: ProviderDocument[];
+  notes?: string;
+}
+
+export type QuoteRequestStatus = 'PENDIENTE' | 'ENVIADA' | 'COTIZADA_PARCIAL' | 'COTIZADA_TOTAL' | 'VENCIDA' | 'CANCELADA';
+
+export interface WorkQuoteRequest {
+  id: string;
+  workRequestId: string;
+  providerIds: string[];
+  sentAt?: string;
+  dueAt?: string;
+  status: QuoteRequestStatus;
+  requirements: string[];
+  notes?: string;
+  createdAt: string;
+}
+
+export type SupplierQuoteStatus = 'SOLICITADA' | 'RECIBIDA' | 'OBSERVADA' | 'PRESELECCIONADA' | 'RECHAZADA' | 'SELECCIONADA' | 'VENCIDA';
+
+export interface SupplierQuote {
+  id: string;
+  quoteRequestId: string;
+  providerId: string;
+  providerName?: string;
+  workRequestId: string;
+  status: SupplierQuoteStatus;
+  amount: number;
+  currency: 'ARS' | 'USD';
+  materialCost?: number;
+  laborCost?: number;
+  estimatedDays?: number;
+  startAvailability?: string;
+  warrantyMonths?: number;
+  paymentTerms?: string;
+  validUntil?: string;
+  notes?: string;
+  createdAt: string;
+}
+
+export type ClientProposalStatus =
+  | 'BORRADOR'
+  | 'ENVIADA'
+  | 'VISTA'
+  | 'EN_EVALUACION'
+  | 'MODIFICACION_SOLICITADA'
+  | 'APROBADA'
+  | 'RECHAZADA'
+  | 'VENCIDA';
+
+export interface ClientProposal {
+  id: string;
+  workRequestId: string;
+  lotId: string;
+  lotNumber?: string;
+  customerId: string;
+  customerName?: string;
+  title: string;
+  version: number;
+  selectedSupplierQuoteId: string;
+  providerId: string;
+  providerName: string;
+  status: ClientProposalStatus;
+  providerCost: number;
+  clientPrice: number;
+  commissionAmount: number;
+  marginAmount: number;
+  currency: 'ARS' | 'USD';
+  estimatedDurationDays: number;
+  estimatedStartDate?: string;
+  warrantyMonths: number;
+  termsAndConditions?: string;
+  optionals?: string[];
+  validUntil?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export type CommissionSourceType = 'OBRA' | 'SERVICIO_RECURRENTE';
+export type CommissionStatus = 'ESTIMADA' | 'DEVENGADA' | 'PENDIENTE' | 'PAGADA' | 'CANCELADA' | 'OBSERVADA';
+
+export interface Commission {
+  id: string;
+  sourceType: CommissionSourceType;
+  sourceId: string;
+  providerId?: string;
+  providerName?: string;
+  lotId?: string;
+  lotNumber?: string;
+  customerId?: string;
+  customerName?: string;
+  model: CommissionModel;
+  baseAmount: number;
+  rate?: number;
+  fixedAmount?: number;
+  commissionAmount: number;
+  marginAmount: number;
+  currency: 'ARS' | 'USD';
+  status: CommissionStatus;
+  earnedAt?: string;
+  payableAt?: string;
+  paidAt?: string;
+  notes?: string;
+  createdAt: string;
+}
+
+export type WorkOrderStatus =
+  | 'PREPARACION'
+  | 'PENDIENTE_INICIO'
+  | 'EN_EJECUCION'
+  | 'PAUSADA'
+  | 'DEMORADA'
+  | 'EN_INSPECCION'
+  | 'OBSERVADA'
+  | 'FINALIZADA'
+  | 'GARANTIA'
+  | 'CANCELADA';
+
+export interface WorkOrder {
+  id: string;
+  workRequestId: string;
+  lotId: string;
+  lotNumber?: string;
+  customerId: string;
+  customerName?: string;
+  providerId: string;
+  providerName?: string;
+  supplierQuoteId?: string;
+  proposalId?: string;
+  status: WorkOrderStatus;
+  title: string;
+  category: ServiceCategory;
+  contractedAmount: number;
+  providerCost: number;
+  marginAmount: number;
+  currency: 'ARS' | 'USD';
+  startDate?: string;
+  expectedEndDate?: string;
+  actualEndDate?: string;
+  progress: number;
+  coordinatorId?: string;
+  coordinatorName?: string;
+  warrantyMonths?: number;
+  notes?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export type MilestoneStatus = 'PENDIENTE' | 'EN_PROCESO' | 'COMPLETADO' | 'OBSERVADO';
+
+export interface WorkMilestone {
+  id: string;
+  workOrderId: string;
+  title: string;
+  description?: string;
+  percentage: number;
+  status: MilestoneStatus;
+  plannedDate?: string;
+  completedAt?: string;
+  approvedByUserId?: string;
+  notes?: string;
+}
+
+export type IncidentType = 'DEMORA' | 'DANO' | 'MATERIAL_INCORRECTO' | 'ACCESO' | 'CALIDAD' | 'CLIENTE' | 'CLIMA' | 'SEGURIDAD' | 'OTRO';
+export type IncidentSeverity = 'BAJA' | 'MEDIA' | 'ALTA' | 'CRITICA';
+export type IncidentStatus = 'ABIERTA' | 'EN_ANALISIS' | 'EN_RESOLUCION' | 'RESUELTA' | 'CANCELADA';
+
+export interface Incident {
+  id: string;
+  workOrderId: string;
+  lotId: string;
+  lotNumber?: string;
+  providerId?: string;
+  type: IncidentType;
+  severity: IncidentSeverity;
+  status: IncidentStatus;
+  description: string;
+  reportedAt: string;
+  resolvedAt?: string;
+  assignedToUserId?: string;
+  assignedToUserName?: string;
+  notes?: string;
+}
+
+export type WarrantyStatus = 'ACTIVA' | 'INCIDENCIA_EN_CURSO' | 'PROXIMA_A_VENCER' | 'VENCIDA';
+
+export interface Warranty {
+  id: string;
+  workOrderId: string;
+  lotId: string;
+  lotNumber?: string;
+  customerId: string;
+  customerName?: string;
+  providerId: string;
+  providerName?: string;
+  serviceName: string;
+  startDate: string;
+  endDate: string;
+  months: number;
+  coverageDetails: string;
+  status: WarrantyStatus;
+  createdAt: string;
+}
+
+export type SubscriptionStatus = 'ACTIVO' | 'PAUSADO' | 'CANCELADO' | 'PENDIENTE_PAGO';
+export type ServiceFrequency = 'SEMANAL' | 'QUINCENAL' | 'MENSUAL' | 'BIMESTRAL' | 'TRIMESTRAL' | 'A_DEMANDA';
+
+export interface ServiceSubscription {
+  id: string;
+  lotId: string;
+  lotNumber?: string;
+  customerId: string;
+  customerName?: string;
+  providerId: string;
+  providerName?: string;
+  category: ServiceCategory;
+  title: string;
+  status: SubscriptionStatus;
+  frequency: ServiceFrequency;
+  price: number;
+  providerCost?: number;
+  marginAmount?: number;
+  currency: 'ARS' | 'USD';
+  startDate: string;
+  nextVisitDate?: string;
+  commissionModel?: CommissionModel;
+  commissionAmount?: number;
+  notes?: string;
+  createdAt: string;
+}
+
 export interface QuoteRequest {
   lotId: string;
   lotNumber: string;
