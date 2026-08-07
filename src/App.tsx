@@ -13,7 +13,16 @@ import {
   mockTasks,
   mockVisits,
   mockDevelopments,
-  mockQuotes
+  mockQuotes,
+  mockNotaryOffices,
+  mockSurveyors,
+  mockDocuments,
+  mockLegalProcesses,
+  mockSigningAppointments,
+  mockSurveys,
+  mockPermits,
+  mockLotTimelineEvents,
+  mockSales
 } from './data/mockData';
 import {
   Lot,
@@ -36,7 +45,17 @@ import {
   LotHoldReleaseReason,
   PaymentMethod,
   DepositRejectionReason,
-  ReservationCancellationReason
+  ReservationCancellationReason,
+  LotDocument,
+  LegalProcess,
+  NotaryOffice,
+  Surveyor,
+  Survey,
+  Permit,
+  DeedSigningAppointment,
+  LotTimelineEvent,
+  Sale,
+  DocumentStatus
 } from './types';
 import { createDefaultChecklist } from './domain/reservationDomain';
 
@@ -63,6 +82,7 @@ import { DevelopmentsModule } from './modules/developments/DevelopmentsModule';
 import { NewLeadModal } from './components/modals/NewLeadModal';
 import { NewHoldModal } from './components/modals/NewHoldModal';
 import { LotDetailSheet } from './components/modals/LotDetailSheet';
+import { Lot360ViewModal } from './components/lots/Lot360ViewModal';
 import { NotificationsSheet } from './components/modals/NotificationsSheet';
 
 export function App() {
@@ -88,12 +108,25 @@ export function App() {
   const [developments, setDevelopments] = useState<Development[]>(mockDevelopments);
   const [quotes, setQuotes] = useState<Quote[]>(mockQuotes);
   const [paymentPlans, setPaymentPlans] = useState<PaymentPlan[]>(mockPaymentPlans);
+  const [sales, setSales] = useState<Sale[]>(mockSales);
+
+  // Phase 6 State
+  const [documents, setDocuments] = useState<LotDocument[]>(mockDocuments);
+  const [legalProcesses, setLegalProcesses] = useState<LegalProcess[]>(mockLegalProcesses);
+  const [notaryOffices, setNotaryOffices] = useState<NotaryOffice[]>(mockNotaryOffices);
+  const [surveyors, setSurveyors] = useState<Surveyor[]>(mockSurveyors);
+  const [surveys, setSurveys] = useState<Survey[]>(mockSurveys);
+  const [permits, setPermits] = useState<Permit[]>(mockPermits);
+  const [appointments, setAppointments] = useState<DeedSigningAppointment[]>(mockSigningAppointments);
+  const [timelineEvents, setTimelineEvents] = useState<LotTimelineEvent[]>(mockLotTimelineEvents);
+
   const [favoriteLotIds, setFavoriteLotIds] = useState<string[]>(['lot-a1', 'lot-b2']);
 
   // Modal selections
   const [isNewLeadOpen, setIsNewLeadOpen] = useState(false);
   const [isNewHoldOpen, setIsNewHoldOpen] = useState(false);
   const [selectedLotForDetail, setSelectedLotForDetail] = useState<Lot | null>(null);
+  const [selected360Lot, setSelected360Lot] = useState<Lot | null>(null);
   const [quoteLot, setQuoteLot] = useState<Lot | null>(null);
   const [selectedLeadForContext, setSelectedLeadForContext] = useState<Lead | null>(mockLeads[0] || null);
 
@@ -113,7 +146,119 @@ export function App() {
     developments: 'Ficha del Desarrollo',
   };
 
-  // Phase 3 Quote & Favorites Handlers
+  // Phase 6 Handlers
+  const handleUpdateLegalProcess = (processId: string, updates: Partial<LegalProcess>) => {
+    setLegalProcesses(prev => prev.map(p => p.id === processId ? { ...p, ...updates, updatedAt: new Date().toISOString() } : p));
+  };
+
+  const handleStartLegalProcess = (lotId: string) => {
+    const lotObj = lots.find(l => l.id === lotId);
+    if (!lotObj) return;
+
+    const newProc: LegalProcess = {
+      id: `leg-${Date.now()}`,
+      lotId: lotObj.id,
+      lotNumber: lotObj.number,
+      customerName: 'Titular Registrado',
+      type: 'ESCRITURACION',
+      status: 'EXPEDIENTE_COMPLETO',
+      stage: 'PREPARANDO_EXPEDIENTE',
+      assignedLegalUserId: 'usr-legal-1',
+      assignedLegalUserName: 'Dra. María Elena San Martín',
+      notaryOfficeId: 'notary-01',
+      notaryOfficeName: 'Escribanía Bunge & Asociados',
+      assignedNotary: 'Escribanía Bunge & Asociados',
+      startedAt: new Date().toISOString().split('T')[0],
+      targetDate: '2026-10-30',
+      estimatedCompletion: '2026-10-30',
+      currentStep: 'Expediente iniciado — Documentación en revisión por escribanía',
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+
+    setLegalProcesses(prev => [newProc, ...prev]);
+
+    setTimelineEvents(prev => [
+      {
+        id: `evt-${Date.now()}`,
+        lotId: lotObj.id,
+        lotNumber: lotObj.number,
+        category: 'LEGAL',
+        timestamp: new Date().toISOString().replace('T', ' ').slice(0, 16),
+        title: 'Tramitación de Escritura Iniciada',
+        description: 'Se dió inicio al proceso escriturario con Escribanía Bunge & Asociados.',
+        authorName: 'Dra. María Elena San Martín',
+      },
+      ...prev,
+    ]);
+  };
+
+  const handleUpdateDocumentStatus = (docId: string, status: DocumentStatus) => {
+    setDocuments(prev => prev.map(d => d.id === docId ? { ...d, status, reviewedAt: new Date().toISOString() } : d));
+  };
+
+  const handleUploadDocument = (doc: Partial<LotDocument>) => {
+    const createdDoc: LotDocument = {
+      id: `doc-${Date.now()}`,
+      ownerType: doc.ownerType || 'LOT',
+      ownerId: doc.ownerId || doc.lotId || 'lot-1',
+      lotId: doc.lotId || 'lot-1',
+      lotNumber: doc.lotNumber || 'A-1',
+      type: doc.type || 'DNI',
+      title: doc.title || 'Documento',
+      status: doc.status || 'EN_REVISION',
+      fileName: doc.fileName || 'archivo.pdf',
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+    setDocuments(prev => [createdDoc, ...prev]);
+  };
+
+  const handleScheduleSigning = (params: Partial<DeedSigningAppointment>) => {
+    const newApp: DeedSigningAppointment = {
+      id: `sign-${Date.now()}`,
+      legalProcessId: params.legalProcessId || 'leg-1',
+      lotId: params.lotId || 'lot-a4',
+      lotNumber: params.lotNumber || 'A-4',
+      customerName: params.customerName || 'Comprador',
+      notaryOfficeId: params.notaryOfficeId || 'notary-01',
+      notaryName: params.notaryName || 'Escribanía Bunge & Asociados',
+      scheduledDate: params.scheduledDate || '2026-08-25',
+      scheduledTime: params.scheduledTime || '11:00 hs',
+      location: params.location || 'Escribanía',
+      representatives: params.representatives || ['Escribano', 'Fiduciario'],
+      requiredDocuments: params.requiredDocuments || ['DNI', 'Boleto'],
+      status: 'CONFIRMADA',
+      createdAt: new Date().toISOString(),
+    };
+
+    setAppointments(prev => [newApp, ...prev]);
+
+    if (params.legalProcessId) {
+      setLegalProcesses(prev => prev.map(p => p.id === params.legalProcessId ? {
+        ...p,
+        status: 'LISTA_PARA_FIRMA',
+        stage: 'ESCRITURA_FIRMA',
+        currentStep: `Turno de firma agendado para el ${newApp.scheduledDate} a las ${newApp.scheduledTime}`
+      } : p));
+    }
+  };
+
+  const handleCompleteSigning = (appointmentId: string) => {
+    const app = appointments.find(a => a.id === appointmentId);
+    if (!app) return;
+
+    setAppointments(prev => prev.map(a => a.id === appointmentId ? { ...a, status: 'REALIZADA' } : a));
+
+    if (app.legalProcessId) {
+      setLegalProcesses(prev => prev.map(p => p.id === app.legalProcessId ? {
+        ...p,
+        status: 'FIRMADA',
+        stage: 'ESCRITURA_INSCRIPCION',
+        currentStep: 'Escritura firmada. En proceso de inscripción registral.'
+      } : p));
+    }
+  };
   const handleSaveQuote = (newQuote: Quote) => {
     setQuotes(prev => [newQuote, ...prev]);
   };
@@ -755,7 +900,28 @@ export function App() {
           />
         )}
 
-        {activeModule === 'legal' && <LegalModule />}
+        {activeModule === 'legal' && (
+          <LegalModule
+            lots={lots}
+            sales={sales}
+            paymentPlans={paymentPlans}
+            documents={documents}
+            legalProcesses={legalProcesses}
+            notaryOffices={notaryOffices}
+            surveyors={surveyors}
+            surveys={surveys}
+            appointments={appointments}
+            tasks={tasks}
+            timelineEvents={timelineEvents}
+            onUpdateLegalProcess={handleUpdateLegalProcess}
+            onStartLegalProcess={handleStartLegalProcess}
+            onUpdateDocumentStatus={handleUpdateDocumentStatus}
+            onScheduleSigning={handleScheduleSigning}
+            onCompleteSigning={handleCompleteSigning}
+            onCreateTask={(task) => setTasks(prev => [task as TaskItem, ...prev])}
+            onOpenPaymentsModule={(planId) => setActiveModule('payments')}
+          />
+        )}
 
         {activeModule === 'works' && <WorksModule />}
 
@@ -838,6 +1004,7 @@ export function App() {
         isFavorite={selectedLotForDetail ? favoriteLotIds.includes(selectedLotForDetail.id) : false}
         selectedLead={selectedLeadForContext}
         onToggleFavorite={handleToggleFavorite}
+        onOpen360View={(lot) => setSelected360Lot(lot)}
         onSimulateQuote={(lot) => {
           setQuoteLot(lot);
           setActiveModule('quotes');
@@ -847,6 +1014,33 @@ export function App() {
         }}
         onReserveLot={(lot) => {
           setActiveModule('reservations');
+        }}
+      />
+
+      <Lot360ViewModal
+        isOpen={!!selected360Lot}
+        onClose={() => setSelected360Lot(null)}
+        lot={selected360Lot}
+        sale={sales.find(s => s.lotId === selected360Lot?.id)}
+        paymentPlan={paymentPlans.find(p => p.lotId === selected360Lot?.id)}
+        documents={documents.filter(d => d.lotId === selected360Lot?.id)}
+        legalProcess={legalProcesses.find(p => p.lotId === selected360Lot?.id)}
+        surveys={surveys.filter(s => s.lotId === selected360Lot?.id)}
+        permits={permits}
+        notaryOffices={notaryOffices}
+        appointments={appointments.filter(a => a.lotId === selected360Lot?.id)}
+        timelineEvents={timelineEvents.filter(t => t.lotId === selected360Lot?.id)}
+        tasks={tasks}
+        onUpdateDocumentStatus={handleUpdateDocumentStatus}
+        onUploadDocument={handleUploadDocument}
+        onUpdateLegalProcess={handleUpdateLegalProcess}
+        onStartLegalProcess={handleStartLegalProcess}
+        onScheduleSigning={handleScheduleSigning}
+        onCompleteSigning={handleCompleteSigning}
+        onCreateTask={(task) => setTasks(prev => [task as TaskItem, ...prev])}
+        onOpenPaymentsModule={(planId) => {
+          setSelected360Lot(null);
+          setActiveModule('payments');
         }}
       />
 

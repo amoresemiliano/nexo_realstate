@@ -18,6 +18,7 @@ interface LotDetailSheetProps {
   isCompared?: boolean;
   onAddToComparison?: (lot: Lot) => void;
   onAssociateLead?: (lot: Lot) => void;
+  onOpen360View?: (lot: Lot) => void;
   selectedLead?: Lead | null;
 }
 
@@ -33,6 +34,7 @@ export const LotDetailSheet: React.FC<LotDetailSheetProps> = ({
   isCompared = false,
   onAddToComparison,
   onAssociateLead,
+  onOpen360View,
   selectedLead,
 }) => {
   if (!lot) return null;
@@ -181,6 +183,20 @@ export const LotDetailSheet: React.FC<LotDetailSheetProps> = ({
 
         {/* Main Action Buttons */}
         <div className="space-y-2 pt-1">
+          {onOpen360View && (
+            <Button
+              variant="primary"
+              fullWidth
+              onClick={() => {
+                onClose();
+                onOpen360View(lot);
+              }}
+              className="bg-purple-600 hover:bg-purple-700 text-white"
+            >
+              <FileText className="w-4 h-4" /> Abrir Ficha 360° Completa del Lote
+            </Button>
+          )}
+
           <Button
             variant="primary"
             fullWidth

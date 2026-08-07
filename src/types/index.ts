@@ -396,6 +396,11 @@ export interface Lot {
   currentReservationId?: string;
   buyerId?: string;
   assignedLeadId?: string;
+  financialStatus?: FinancialLotStatus;
+  documentStatus?: DocumentLotStatus;
+  legalStatus?: LegalLotStatus;
+  technicalStatus?: TechnicalLotStatus;
+  deliveryStatus?: DeliveryLotStatus;
   createdAt?: string;
   updatedAt?: string;
 }
@@ -858,37 +863,261 @@ export interface ReceiptInternal {
   agentName: string;
 }
 
-export interface LegalProcess {
+export type CommercialLotStatus = 'DISPONIBLE' | 'BLOQUEADO' | 'RESERVADO' | 'VENDIDO';
+export type FinancialLotStatus = 'SIN_PLAN' | 'AL_DIA' | 'EN_MORA' | 'CANCELADO_ECONOMICAMENTE';
+export type DocumentLotStatus = 'INCOMPLETO' | 'EN_REVISION' | 'COMPLETO' | 'OBSERVADO';
+export type LegalLotStatus = 'SIN_INICIAR' | 'EN_PREPARACION' | 'EN_TRAMITE' | 'OBSERVADO' | 'LISTO_PARA_FIRMA' | 'FIRMADO' | 'INSCRIPTO';
+export type TechnicalLotStatus = 'SIN_RELEVAMIENTO' | 'MENSURA_PENDIENTE' | 'AMOJONAMIENTO_PENDIENTE' | 'VALIDADO';
+export type DeliveryLotStatus = 'PENDIENTE' | 'PREPARANDO_ENTREGA' | 'ENTREGADO';
+
+export type DocumentOwnerType = 'LOT' | 'CUSTOMER' | 'SALE' | 'LEGAL_PROCESS';
+export type DocumentStatus = 'PENDIENTE' | 'RECIBIDO' | 'EN_REVISION' | 'APROBADO' | 'OBSERVADO' | 'RECHAZADO' | 'VENCIDO' | 'REEMPLAZADO';
+
+export type DocumentType =
+  // Comprador
+  | 'DNI'
+  | 'CUIT_CUIL'
+  | 'CONSTANCIA_FISCAL'
+  | 'ESTADO_CIVIL'
+  | 'DOMICILIO'
+  | 'JUSTIFICACION_FONDOS'
+  | 'PODER'
+  // Venta
+  | 'RESERVA'
+  | 'COTIZACION_ACEPTADA'
+  | 'BOLETO'
+  | 'CONTRATO'
+  | 'CONVENIO_FINANCIACION'
+  | 'RECIBO'
+  // Lote
+  | 'PLANO'
+  | 'NOMENCLATURA_CATASTRAL'
+  | 'MENSURA'
+  | 'CERTIFICADO_PARCELARIO'
+  | 'AMOJONAMIENTO'
+  | 'FACTIBILIDADES'
+  // Legal
+  | 'INFORME_DOMINIO'
+  | 'CERTIFICADO_INHIBICION'
+  | 'LIBRE_DEUDA'
+  | 'MINUTA'
+  | 'ESCRITURA'
+  | 'TESTIMONIO'
+  // Obra futura
+  | 'PERMISO'
+  | 'PLANO_MUNICIPAL'
+  | 'FACTIBILIDAD'
+  | 'CERTIFICADO_TECNICO';
+
+export interface LotDocument {
   id: string;
-  lotNumber: string;
-  customerName: string;
-  stage: 'PLANO_MENSURA' | 'FIDEICOMISO' | 'BOLETO_COMPRAVENTA' | 'ESCRITURA_CANCELADA' | 'ENTREGA_POSESION';
-  status: 'EN_PROCESO' | 'APROBADO' | 'REQUIERE_ACCION' | 'COMPLETADO';
-  estimatedCompletion: string;
-  documents: { name: string; url: string; verified: boolean }[];
-  assignedNotary: string;
+  ownerType: DocumentOwnerType;
+  ownerId: string;
+  lotId?: string;
+  lotNumber?: string;
+  customerId?: string;
+  customerName?: string;
+  saleId?: string;
+  legalProcessId?: string;
+  type: DocumentType;
+  title: string;
+  status: DocumentStatus;
+  issuedAt?: string;
+  expiresAt?: string;
+  receivedAt?: string;
+  reviewedAt?: string;
+  reviewedByUserId?: string;
+  fileName?: string;
+  filePreviewUrl?: string;
+  notes?: string;
+  rejectionReason?: string;
+  createdAt: string;
+  updatedAt: string;
 }
 
-export interface WorkItem {
+export type LegalProcessType =
+  | 'PREPARACION_CONTRATUAL'
+  | 'REGULARIZACION_DOMINIAL'
+  | 'ESCRITURACION'
+  | 'CESION'
+  | 'RESCISION'
+  | 'REVISION_LEGAL';
+
+export type DeedStatus =
+  | 'NO_INICIADA'
+  | 'DOCUMENTACION_PENDIENTE'
+  | 'PREPARANDO_EXPEDIENTE'
+  | 'INFORME_DOMINIO_SOLICITADO'
+  | 'CERTIFICADOS_PENDIENTES'
+  | 'EXPEDIENTE_COMPLETO'
+  | 'EN_ESCRIBANIA'
+  | 'OBSERVADA'
+  | 'LISTA_PARA_FIRMA'
+  | 'FIRMA_AGENDADA'
+  | 'FIRMADA'
+  | 'INSCRIPCION_PENDIENTE'
+  | 'INSCRIPTA'
+  | 'FINALIZADA';
+
+export interface LegalProcess {
   id: string;
+  lotId: string;
+  lotNumber: string;
+  saleId?: string;
+  customerId?: string;
+  customerName: string;
+  type: LegalProcessType;
+  status: DeedStatus;
+  stage?: string; // backwards compatibility
+  assignedLegalUserId?: string;
+  assignedLegalUserName?: string;
+  notaryOfficeId?: string;
+  notaryOfficeName?: string;
+  assignedNotary?: string; // backwards compatibility
+  startedAt?: string;
+  targetDate?: string;
+  estimatedCompletion?: string; // backwards compatibility
+  completedAt?: string;
+  currentStep?: string;
+  notes?: string;
+  documents?: { name: string; url: string; verified: boolean }[]; // backwards compatibility
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface NotaryOffice {
+  id: string;
+  name: string;
+  contactName?: string;
+  email?: string;
+  phone?: string;
+  address?: string;
+  assignedLegalProcessIds: string[];
+  status: 'ACTIVO' | 'INACTIVO';
+}
+
+export interface DeedSigningAppointment {
+  id: string;
+  legalProcessId: string;
+  lotId: string;
+  lotNumber: string;
+  customerName: string;
+  notaryOfficeId: string;
+  notaryName: string;
+  scheduledDate: string;
+  scheduledTime: string;
+  location: string;
+  representatives: string[];
+  requiredDocuments: string[];
+  status: 'PENDIENTE' | 'CONFIRMADA' | 'REPROGRAMADA' | 'CANCELADA' | 'REALIZADA';
+  notes?: string;
+  createdAt: string;
+}
+
+export type SurveyType = 'MENSURA' | 'AMOJONAMIENTO' | 'RELEVAMIENTO' | 'COTAS' | 'VERIFICACION_LIMITES';
+export type SurveyStatus = 'PENDIENTE' | 'SOLICITADO' | 'PROGRAMADO' | 'EN_EJECUCION' | 'OBSERVADO' | 'FINALIZADO';
+
+export interface Survey {
+  id: string;
+  lotId: string;
+  lotNumber: string;
+  type: SurveyType;
+  surveyorId?: string;
+  surveyorName?: string;
+  status: SurveyStatus;
+  requestedAt?: string;
+  scheduledAt?: string;
+  completedAt?: string;
+  result?: string;
+  documentIds: string[];
+  notes?: string;
+  createdAt: string;
+}
+
+export interface Surveyor {
+  id: string;
+  name: string;
+  licenseNumber: string;
+  phone: string;
+  email: string;
+  assignedLotIds: string[];
+  status: 'ACTIVO' | 'INACTIVO';
+}
+
+export type PermitType = 'FACTIBILIDAD_AGUA' | 'ELECTRICIDAD' | 'GAS' | 'PERFORACION' | 'OBRA' | 'AMBIENTAL' | 'MUNICIPAL' | 'OTROS';
+export type PermitStatus = 'PENDIENTE' | 'SOLICITADO' | 'EN_TRAMITE' | 'APROBADO' | 'OBSERVADO' | 'VENCIDO';
+
+export interface Permit {
+  id: string;
+  lotId?: string;
+  lotNumber?: string;
+  developmentId?: string;
+  developmentName?: string;
+  type: PermitType;
+  authority: string;
+  status: PermitStatus;
+  requestedAt?: string;
+  expiresAt?: string;
+  approvedAt?: string;
+  documentIds: string[];
+  notes?: string;
+  createdAt: string;
+}
+
+export type LotTimelineCategory = 'COMERCIAL' | 'FINANCIERO' | 'LEGAL' | 'TECNICO' | 'OPERATIVO';
+
+export interface LotTimelineEvent {
+  id: string;
+  lotId: string;
+  lotNumber?: string;
+  category: LotTimelineCategory;
+  timestamp: string;
   title: string;
-  category: 'AGUA' | 'ELECTRICIDAD' | 'PAVIMENTO' | 'PORTAL' | 'SEGURIDAD' | 'GAS';
-  progressPercentage: number;
-  status: 'PLANIFICADO' | 'EN_EJECUCION' | 'DEMORADO' | 'FINALIZADO';
-  contractor: string;
-  startDate: string;
-  targetDate: string;
+  description: string;
+  authorName: string;
+  metadata?: Record<string, any>;
 }
 
 export interface SystemAlert {
   id: string;
-  type: 'HOLD_EXPIRING' | 'OVERDUE_PAYMENT' | 'DEPOSIT_VALIDATION' | 'WORK_DELAY' | 'LEAD_ATTENTION';
+  type:
+    | 'HOLD_EXPIRING'
+    | 'OVERDUE_PAYMENT'
+    | 'DEPOSIT_VALIDATION'
+    | 'WORK_DELAY'
+    | 'LEAD_ATTENTION'
+    | 'DOCUMENT_MISSING'
+    | 'DOCUMENT_OBSERVED'
+    | 'DOCUMENT_EXPIRED'
+    | 'DEED_STALLED'
+    | 'SIGNING_UPCOMING'
+    | 'SURVEY_PENDING'
+    | 'PERMIT_EXPIRING';
   title: string;
   description: string;
   severity: 'ALTA' | 'MEDIA' | 'BAJA';
   createdAt: string;
   actionRequired: string;
   targetModule: string;
+  lotId?: string;
+  lotNumber?: string;
+  customerId?: string;
+}
+
+export interface WorkItem {
+  id: string;
+  title: string;
+  category: string;
+  progressPercentage: number;
+  status: string;
+  contractor: string;
+  startDate: string;
+  targetDate: string;
+}
+
+export interface LegalConfig {
+  requiresFullPayment: boolean;
+  minDocumentProgressPercent: number;
 }
 
 export interface QuoteRequest {
