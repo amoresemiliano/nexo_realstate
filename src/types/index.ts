@@ -357,9 +357,9 @@ export type ReservationCancellationReason =
 
 export type UserRole = 'COMERCIAL' | 'ADMINISTRACION' | 'ADMIN' | 'VENDEDOR' | 'GERENTE_COMERCIAL';
 
-export type PaymentStatus = 'AL_DIA' | 'PROXIMO_VENCIMIENTO' | 'VENCIDO' | 'EN_MORA_GRAVE';
+export type PaymentStatus = 'AL_DIA' | 'PROXIMO_VENCIMIENTO' | 'VENCIDO' | 'EN_MORA_GRAVE' | 'CANCELADO_ECONOMICAMENTE';
 
-export type InstallmentStatus = 'PENDIENTE' | 'PAGADO' | 'VENCIDO' | 'PARCIAL';
+export type InstallmentStatus = 'PENDIENTE' | 'PROXIMA' | 'PAGADO' | 'VENCIDO' | 'PARCIAL' | 'REFINANCIADO' | 'CANCELADO';
 
 export interface Lot {
   id: string;
@@ -655,44 +655,207 @@ export interface Reservation {
   cancellationReason?: ReservationCancellationReason;
 }
 
+export type SaleStatus =
+  | 'EN_PREPARACION'
+  | 'DOCUMENTACION_PENDIENTE'
+  | 'LISTA_PARA_FORMALIZAR'
+  | 'CONFIRMADA'
+  | 'FINANCIADA'
+  | 'CANCELADA_ECONOMICAMENTE'
+  | 'RESCINDIDA'
+  | 'EN_REVISION';
+
+export type PaymentPlanStatus =
+  | 'ACTIVO'
+  | 'AL_DIA'
+  | 'EN_MORA'
+  | 'MORA_LEVE'
+  | 'MORA_MEDIA'
+  | 'MORA_CRITICA'
+  | 'RIESGO_CONTRACTUAL'
+  | 'REFINANCIADO'
+  | 'CANCELADO_ECONOMICAMENTE'
+  | 'SUSPENDIDO'
+  | 'RESCINDIDO';
+
 export interface Installment {
+  id?: string;
+  paymentPlanId?: string;
   number: number;
   dueDate: string;
+  baseAmount?: number;
+  adjustedAmount?: number;
+  paidAmount?: number;
+  outstandingAmount?: number;
   amountUSD: number;
   amountARS: number;
   cacIndexAdjustment: number;
   status: InstallmentStatus;
   paidDate?: string;
+  paidAt?: string;
   receiptNumber?: string;
+  daysOverdue?: number;
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 export interface PaymentPlan {
   id: string;
   saleId: string;
-  lotNumber: string;
+  customerId?: string;
   customerName: string;
+  lotId?: string;
+  lotNumber: string;
+  block?: string;
+  currency?: 'ARS' | 'USD';
+  originalAmount?: number;
   downPaymentUSD: number;
+  downPayment?: number;
+  financedAmount?: number;
   totalInstallments: number;
+  installmentCount?: number;
   paidInstallmentsCount: number;
   monthlyAmountUSD: number;
+  monthlyAmount?: number;
+  firstDueDate?: string;
+  frequency?: 'MONTHLY';
+  adjustmentType?: AdjustmentType;
   installments: Installment[];
-  status: PaymentStatus;
+  status: PaymentPlanStatus | PaymentStatus;
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 export interface Sale {
   id: string;
+  saleNumber?: string;
+  reservationId?: string;
+  customerId?: string;
+  leadId?: string;
   lotId: string;
   lotNumber: string;
   block: string;
+  developmentId?: string;
+  developmentName?: string;
+  sellerId?: string;
+  agentName: string;
   customerName: string;
   customerDni: string;
   customerPhone: string;
   customerEmail: string;
+  contractId?: string;
+  paymentPlanId?: string;
+  status?: SaleStatus;
+  agreedPrice?: number;
+  currency?: 'ARS' | 'USD';
+  depositAmount?: number;
+  initialPaymentAmount?: number;
+  financedAmount?: number;
+  installmentCount?: number;
   saleDate: string;
+  firstDueDate?: string;
   totalAmountUSD: number;
   downPaymentUSD: number;
+  contractStatus: 'BOLETO_FIRMADO' | 'EN_REVISION_LEGAL' | 'PENDIENTE_BOLETO' | 'ESCRITURADO' | 'PREPARACION_CONTRATUAL';
+  notes?: string;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface PaymentRecord {
+  id: string;
+  customerId: string;
+  customerName?: string;
+  saleId: string;
+  paymentPlanId: string;
+  installmentId?: string;
+  installmentNumber?: number;
+  lotId?: string;
+  lotNumber?: string;
+  amount: number;
+  currency: 'ARS' | 'USD';
+  paymentDate: string;
+  paymentMethod: PaymentMethod;
+  status: 'INFORMADO' | 'PENDIENTE_CONCILIACION' | 'CONFIRMADO' | 'RECHAZADO' | 'REVERSADO';
+  reference?: string;
+  receiptId?: string;
+  receiptNumber?: string;
+  notes?: string;
+  createdAt: string;
+}
+
+export interface UnreconciledPayment {
+  id: string;
+  clientName: string;
+  leadId?: string;
+  customerId?: string;
+  lotNumber: string;
+  lotId?: string;
+  amount: number;
+  currency: 'ARS' | 'USD';
+  paymentDate: string;
+  paymentMethod: PaymentMethod;
+  reference: string;
+  status: 'SIN_CONCILIAR' | 'CONCILIADO' | 'OBSERVADO' | 'RECHAZADO' | 'DUPLICADO';
+  suggestedInstallmentNumber?: number;
+  notes?: string;
+}
+
+export interface PaymentPromise {
+  id: string;
+  customerId: string;
+  customerName: string;
+  lotNumber: string;
+  promisedAmount: number;
+  promisedDate: string;
+  installmentNumbers: number[];
   agentName: string;
-  contractStatus: 'BOLETO_FIRMATO' | 'EN_REVISION_LEGAL' | 'PENDIENTE_BOLETO' | 'ESCRITURADO';
+  status: 'VIGENTE' | 'CUMPLIDA' | 'VENCIDA' | 'CANCELADA';
+  notes?: string;
+  createdAt: string;
+}
+
+export interface CollectionCommunication {
+  id: string;
+  customerId: string;
+  customerName?: string;
+  saleId?: string;
+  lotNumber?: string;
+  type: 'LLAMADA' | 'WHATSAPP' | 'CORREO' | 'NOTA' | 'REFINANCIACION';
+  agentName: string;
+  date: string;
+  result: string;
+  nextAction?: string;
+}
+
+export interface RefinancingProposal {
+  id: string;
+  saleId: string;
+  customerId: string;
+  customerName: string;
+  lotNumber: string;
+  originalOutstandingBalance: number;
+  newInstallmentsCount: number;
+  newMonthlyAmount: number;
+  status: 'PENDIENTE_REVISION' | 'APROBADO' | 'RECHAZADO';
+  reason: string;
+  createdAt: string;
+}
+
+export interface ReceiptInternal {
+  id: string;
+  number: string;
+  customerId: string;
+  customerName: string;
+  lotNumber: string;
+  saleId: string;
+  paymentId?: string;
+  amount: number;
+  currency: 'ARS' | 'USD';
+  paymentMethod: PaymentMethod;
+  concept: string;
+  issuedAt: string;
+  agentName: string;
 }
 
 export interface LegalProcess {
