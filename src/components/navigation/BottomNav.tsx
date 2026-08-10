@@ -30,11 +30,14 @@ export const BottomNav: React.FC<BottomNavProps> = ({
   ];
 
   const mainNavItems = rawNavItems.filter((item) => isModuleEnabled(item.id));
-  const gridColsClass = `grid-cols-${mainNavItems.length + 1}`;
+  const totalCols = mainNavItems.length + 1;
 
   return (
     <nav className="fixed bottom-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-md border-t border-slate-200/80 shadow-lg px-2 pb-safe pt-1">
-      <div className={clsx("max-w-md mx-auto grid gap-0.5", gridColsClass)}>
+      <div
+        className="max-w-md mx-auto grid gap-0.5"
+        style={{ gridTemplateColumns: `repeat(${totalCols}, minmax(0, 1fr))` }}
+      >
         {mainNavItems.map((item) => {
           const Icon = item.icon;
           const isActive = activeModule === item.id;
