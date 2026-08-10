@@ -58,6 +58,7 @@ import {
   BarChart3
 } from 'lucide-react';
 import { Button } from '../../components/ui/Button';
+import { ModuleVisibilityConfig } from '../../config/moduleVisibility';
 
 interface DashboardModuleProps {
   userRole: UserRole;
@@ -83,6 +84,7 @@ interface DashboardModuleProps {
   onNavigate: (moduleId: string) => void;
   onOpenNewLead: () => void;
   onOpenHoldModal: () => void;
+  moduleVisibility?: ModuleVisibilityConfig;
 }
 
 export const DashboardModule: React.FC<DashboardModuleProps> = ({

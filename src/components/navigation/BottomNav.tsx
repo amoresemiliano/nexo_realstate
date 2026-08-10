@@ -1,19 +1,27 @@
 import React from 'react';
 import { LayoutDashboard, MapPin, Users, BookmarkCheck, Calculator, MoreHorizontal } from 'lucide-react';
 import { clsx } from 'clsx';
+import { ModuleVisibilityConfig } from '../../config/moduleVisibility';
 
 interface BottomNavProps {
   activeModule: string;
   onSelectModule: (moduleId: string) => void;
   onOpenMenu: () => void;
+  moduleVisibility?: ModuleVisibilityConfig;
 }
 
 export const BottomNav: React.FC<BottomNavProps> = ({
   activeModule,
   onSelectModule,
   onOpenMenu,
+  moduleVisibility,
 }) => {
-  const mainNavItems = [
+  const isModuleEnabled = (id: string) => {
+    if (!moduleVisibility) return true;
+    return !!moduleVisibility[id as keyof ModuleVisibilityConfig];
+  };
+
+  const rawNavItems = [
     { id: 'dashboard', label: 'Inicio', icon: LayoutDashboard },
     { id: 'lots', label: 'Lotes', icon: MapPin },
     { id: 'leads', label: 'Leads', icon: Users },
@@ -21,9 +29,12 @@ export const BottomNav: React.FC<BottomNavProps> = ({
     { id: 'quotes', label: 'Cotizar', icon: Calculator },
   ];
 
+  const mainNavItems = rawNavItems.filter((item) => isModuleEnabled(item.id));
+  const gridColsClass = `grid-cols-${mainNavItems.length + 1}`;
+
   return (
     <nav className="fixed bottom-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-md border-t border-slate-200/80 shadow-lg px-2 pb-safe pt-1">
-      <div className="max-w-md mx-auto grid grid-cols-6 gap-0.5">
+      <div className={clsx("max-w-md mx-auto grid gap-0.5", gridColsClass)}>
         {mainNavItems.map((item) => {
           const Icon = item.icon;
           const isActive = activeModule === item.id;
@@ -63,3 +74,4 @@ export const BottomNav: React.FC<BottomNavProps> = ({
     </nav>
   );
 };
+

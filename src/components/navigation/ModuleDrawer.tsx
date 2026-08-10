@@ -16,10 +16,12 @@ import {
   ChevronRight,
   ShieldAlert,
   BarChart3,
-  RotateCcw
+  RotateCcw,
+  SlidersHorizontal,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { mockAlerts } from '../../data/mockData';
+import { ModuleVisibilityConfig } from '../../config/moduleVisibility';
 
 interface ModuleDrawerProps {
   isOpen: boolean;
@@ -27,6 +29,9 @@ interface ModuleDrawerProps {
   activeModule: string;
   onSelectModule: (moduleId: string) => void;
   onResetDemo?: () => void;
+  onOpenPresenterConfig?: () => void;
+  moduleVisibility?: ModuleVisibilityConfig;
+  activePresetName?: string;
 }
 
 export const ModuleDrawer: React.FC<ModuleDrawerProps> = ({
@@ -35,8 +40,16 @@ export const ModuleDrawer: React.FC<ModuleDrawerProps> = ({
   activeModule,
   onSelectModule,
   onResetDemo,
+  onOpenPresenterConfig,
+  moduleVisibility,
+  activePresetName,
 }) => {
-  const modulesGrouped = [
+  const isModuleEnabled = (id: string) => {
+    if (!moduleVisibility) return true;
+    return !!moduleVisibility[id as keyof ModuleVisibilityConfig];
+  };
+
+  const rawGroups = [
     {
       group: 'Centro Operativo & Control',
       items: [
@@ -72,6 +85,14 @@ export const ModuleDrawer: React.FC<ModuleDrawerProps> = ({
       ]
     }
   ];
+
+  // Filter items by module visibility
+  const modulesGrouped = rawGroups
+    .map((g) => ({
+      ...g,
+      items: g.items.filter((item) => isModuleEnabled(item.id)),
+    }))
+    .filter((g) => g.items.length > 0);
 
   const handleSelect = (id: string) => {
     onSelectModule(id);
@@ -156,7 +177,7 @@ export const ModuleDrawer: React.FC<ModuleDrawerProps> = ({
               ))}
             </div>
 
-            {/* Footer user / project status */}
+            {/* Footer user / project status & Presenter Controls */}
             <div className="p-4 bg-slate-950 border-t border-slate-800 space-y-2.5">
               <div className="flex items-center justify-between text-xs text-slate-400">
                 <div className="flex items-center gap-2">
@@ -164,9 +185,21 @@ export const ModuleDrawer: React.FC<ModuleDrawerProps> = ({
                   <span className="font-bold text-slate-300">DEMO MODE</span>
                 </div>
                 <span className="text-[10px] bg-amber-500/20 text-amber-300 px-2 py-0.5 rounded-full border border-amber-500/30 font-bold">
-                  Datos Simulados
+                  {activePresetName || 'Datos Simulados'}
                 </span>
               </div>
+
+              {onOpenPresenterConfig && (
+                <button
+                  onClick={() => {
+                    onOpenPresenterConfig();
+                    onClose();
+                  }}
+                  className="w-full py-2 bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/40 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 active:scale-98"
+                >
+                  <SlidersHorizontal className="w-3.5 h-3.5" /> Configurar Módulos Demo
+                </button>
+              )}
 
               {onResetDemo && (
                 <button
@@ -178,7 +211,7 @@ export const ModuleDrawer: React.FC<ModuleDrawerProps> = ({
                   }}
                   className="w-full py-2 bg-rose-500/20 hover:bg-rose-500/30 text-rose-300 border border-rose-500/40 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 active:scale-98"
                 >
-                  <RotateCcw className="w-3.5 h-3.5" /> Restablecer Demo MVP
+                  <RotateCcw className="w-3.5 h-3.5" /> Restablecer Datos Demo
                 </button>
               )}
             </div>
@@ -188,3 +221,4 @@ export const ModuleDrawer: React.FC<ModuleDrawerProps> = ({
     </AnimatePresence>
   );
 };
+

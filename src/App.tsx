@@ -1,4 +1,14 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import {
+  getStoredVisibilityConfig,
+  saveVisibilityConfig,
+  PRESETS,
+  ModuleVisibilityConfig,
+  PresetKey,
+  ModuleKey
+} from './config/moduleVisibility';
+import { PresenterConfigModal } from './components/modals/PresenterConfigModal';
+import { ShieldAlert, X } from 'lucide-react';
 import {
   mockLots,
   mockLeads,
@@ -163,6 +173,42 @@ export function App() {
   const [isEscalationWalkthroughOpen, setIsEscalationWalkthroughOpen] = useState(false);
 
   const [favoriteLotIds, setFavoriteLotIds] = useState<string[]>(['lot-a1', 'lot-b2']);
+
+  // PRESENTER CONTROL (MODULE VISIBILITY STATE)
+  const [visibilityState, setVisibilityState] = useState<{ config: ModuleVisibilityConfig; preset: PresetKey }>(
+    () => getStoredVisibilityConfig()
+  );
+  const [isPresenterConfigOpen, setIsPresenterConfigOpen] = useState(false);
+  const [disabledModuleNotice, setDisabledModuleNotice] = useState<string | null>(null);
+
+  const handleUpdateVisibilityConfig = (newConfig: ModuleVisibilityConfig, newPreset: PresetKey) => {
+    setVisibilityState({ config: newConfig, preset: newPreset });
+    saveVisibilityConfig(newConfig, newPreset);
+  };
+
+  const handleResetPresentation = () => {
+    const defaultPreset = PRESETS.ETAPA_1_CLIENTE;
+    setVisibilityState({ config: { ...defaultPreset.config }, preset: 'ETAPA_1_CLIENTE' });
+    saveVisibilityConfig({ ...defaultPreset.config }, 'ETAPA_1_CLIENTE');
+  };
+
+  // Safe navigation guard checking module visibility
+  const handleSelectModule = (mod: string) => {
+    if (visibilityState.config && !visibilityState.config[mod as ModuleKey]) {
+      setDisabledModuleNotice(mod);
+      setTimeout(() => setDisabledModuleNotice(null), 4000);
+      setActiveModule('dashboard');
+    } else {
+      setActiveModule(mod);
+    }
+  };
+
+  // Redirect to dashboard if currently viewing a module that gets disabled
+  useEffect(() => {
+    if (visibilityState.config && !visibilityState.config[activeModule as ModuleKey]) {
+      setActiveModule('dashboard');
+    }
+  }, [visibilityState.config, activeModule]);
 
   // Modal selections
   const [isNewLeadOpen, setIsNewLeadOpen] = useState(false);
@@ -785,6 +831,20 @@ export function App() {
 
   return (
     <div className="min-h-screen bg-slate-100 flex flex-col font-sans text-slate-900 pb-20">
+      {/* Toast notice when an unincluded module is triggered */}
+      {disabledModuleNotice && (
+        <div className="fixed top-16 right-4 z-50 bg-slate-900 border border-amber-500/40 text-white px-4 py-2.5 rounded-xl shadow-xl flex items-center gap-2.5 text-xs animate-in slide-in-from-top-2">
+          <ShieldAlert className="w-4 h-4 text-amber-400 shrink-0" />
+          <div>
+            <strong className="text-amber-300 block">Módulo Oculto en Presentación</strong>
+            <span className="text-slate-300">Este módulo no está incluido en la configuración de demostración actual.</span>
+          </div>
+          <button onClick={() => setDisabledModuleNotice(null)} className="ml-2 text-slate-400 hover:text-white">
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+      )}
+
       {/* Top Mobile Header */}
       <Header
         activeModuleTitle={moduleTitles[activeModule] || 'Nexo Desarrollos'}
@@ -792,8 +852,10 @@ export function App() {
         unreadCount={unreadCount}
         onOpenMenu={() => setIsMenuOpen(true)}
         onOpenNotifications={() => setIsNotificationsOpen(true)}
-        onOpenOperationalCenter={() => setActiveModule('operational')}
+        onOpenOperationalCenter={() => handleSelectModule('operational')}
         onResetDemo={handleResetDemoData}
+        onOpenPresenterConfig={() => setIsPresenterConfigOpen(true)}
+        moduleVisibility={visibilityState.config}
       />
 
       {/* Main Content Area */}
@@ -812,7 +874,7 @@ export function App() {
             onResolveAlert={handleResolveAlert}
             onApproveDecision={handleApproveDecision}
             onRejectDecision={handleRejectDecision}
-            onNavigateModule={(mod) => setActiveModule(mod)}
+            onNavigateModule={(mod) => handleSelectModule(mod)}
             onTriggerDemoWalkthrough={() => setIsMultiActorWalkthroughOpen(true)}
             onTriggerEscalationDemo={() => setIsEscalationWalkthroughOpen(true)}
             onResetDemoData={handleResetDemoData}
@@ -841,9 +903,10 @@ export function App() {
             autoRules={autoRules}
             autoExecutions={autoExecutions}
             autoTasks={autoTasks}
-            onNavigate={(mod) => setActiveModule(mod)}
+            onNavigate={(mod) => handleSelectModule(mod)}
             onOpenNewLead={() => setIsNewLeadOpen(true)}
             onOpenHoldModal={() => setIsNewHoldOpen(true)}
+            moduleVisibility={visibilityState.config}
           />
         )}
 
@@ -992,8 +1055,9 @@ export function App() {
       {/* Bottom Fixed Navigation Bar */}
       <BottomNav
         activeModule={activeModule}
-        onSelectModule={(mod) => setActiveModule(mod)}
+        onSelectModule={(mod) => handleSelectModule(mod)}
         onOpenMenu={() => setIsMenuOpen(true)}
+        moduleVisibility={visibilityState.config}
       />
 
       {/* Drawer Menu */}
@@ -1001,8 +1065,20 @@ export function App() {
         isOpen={isMenuOpen}
         onClose={() => setIsMenuOpen(false)}
         activeModule={activeModule}
-        onSelectModule={(mod) => setActiveModule(mod)}
+        onSelectModule={(mod) => handleSelectModule(mod)}
         onResetDemo={handleResetDemoData}
+        onOpenPresenterConfig={() => setIsPresenterConfigOpen(true)}
+        moduleVisibility={visibilityState.config}
+      />
+
+      {/* Presenter Config Modal */}
+      <PresenterConfigModal
+        isOpen={isPresenterConfigOpen}
+        onClose={() => setIsPresenterConfigOpen(false)}
+        config={visibilityState.config}
+        preset={visibilityState.preset}
+        onUpdateConfig={handleUpdateVisibilityConfig}
+        onResetPresentation={handleResetPresentation}
       />
 
       {/* Walkthrough Modals */}
