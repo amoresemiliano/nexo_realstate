@@ -58,7 +58,8 @@ import {
   BarChart3
 } from 'lucide-react';
 import { Button } from '../../components/ui/Button';
-import { ModuleVisibilityConfig } from '../../config/moduleVisibility';
+import { clsx } from 'clsx';
+import { ModuleVisibilityConfig, ModuleKey } from '../../config/moduleVisibility';
 
 interface DashboardModuleProps {
   userRole: UserRole;
@@ -110,10 +111,16 @@ export const DashboardModule: React.FC<DashboardModuleProps> = ({
   autoTasks = [],
   onNavigate,
   onOpenNewLead,
-  onOpenHoldModal
+  onOpenHoldModal,
+  moduleVisibility
 }) => {
   const [filter, setFilter] = useState<AnalyticsFilter>(defaultAnalyticsFilter);
   const [viewOverride, setViewOverride] = useState<string | null>(null);
+
+  const isModuleEnabled = (key: ModuleKey): boolean => {
+    if (!moduleVisibility) return true;
+    return moduleVisibility[key] !== false;
+  };
 
   // Compute metrics dynamically via analyticsEngine
   const executiveMetrics = useMemo(
@@ -156,104 +163,175 @@ export const DashboardModule: React.FC<DashboardModuleProps> = ({
     [leads, lots, legalProcesses, alerts]
   );
 
-  // Determine active view mode based on role or override
-  const activeRoleView = viewOverride || userRole;
-
-  // Tabs for switching dashboard view perspective
-  const roleTabs = [
-    { id: 'GERENCIA', label: 'Ejecutivo', icon: Building2 },
-    { id: 'VENDEDOR', label: 'Comercial', icon: Users },
-    { id: 'TESORERIA', label: 'Cobranzas', icon: Wallet },
-    { id: 'LEGAL', label: 'Legales', icon: Scale },
-    { id: 'OBRAS', label: 'Obras', icon: HardHat },
-    { id: 'CLIENTE', label: 'Mi Lote', icon: ShieldCheck },
+  // All available role tabs with their corresponding module keys
+  const allRoleTabs = [
+    { id: 'GERENCIA', label: 'Ejecutivo', icon: Building2, moduleKey: 'dashboard' as ModuleKey },
+    { id: 'VENDEDOR', label: 'Comercial', icon: Users, moduleKey: 'leads' as ModuleKey },
+    { id: 'TESORERIA', label: 'Cobranzas', icon: Wallet, moduleKey: 'payments' as ModuleKey },
+    { id: 'LEGAL', label: 'Legales', icon: Scale, moduleKey: 'legal' as ModuleKey },
+    { id: 'OBRAS', label: 'Obras', icon: HardHat, moduleKey: 'works' as ModuleKey },
+    { id: 'CLIENTE', label: 'Mi Lote', icon: ShieldCheck, moduleKey: 'lots' as ModuleKey },
   ];
+
+  // Filter roleTabs based on moduleVisibility
+  const roleTabs = allRoleTabs.filter((tab) => {
+    if (tab.id === 'VENDEDOR') {
+      return isModuleEnabled('leads') || isModuleEnabled('campaigns') || isModuleEnabled('quotes') || isModuleEnabled('reservations');
+    }
+    if (tab.id === 'TESORERIA') {
+      return isModuleEnabled('payments') || isModuleEnabled('sales');
+    }
+    return isModuleEnabled(tab.moduleKey);
+  });
+
+  // Determine active view mode based on role or override
+  const rawActiveRoleView = viewOverride || userRole;
+
+  // Verify if active role view perspective is allowed
+  const isTabAllowed = (tabId: string) => roleTabs.some((t) => t.id === tabId);
+
+  let activeRoleView = rawActiveRoleView;
+  if (
+    activeRoleView === 'LEGAL' && !isTabAllowed('LEGAL') ||
+    activeRoleView === 'OBRAS' && !isTabAllowed('OBRAS') ||
+    activeRoleView === 'TESORERIA' && !isTabAllowed('TESORERIA') ||
+    activeRoleView === 'VENDEDOR' && !isTabAllowed('VENDEDOR') ||
+    activeRoleView === 'CLIENTE' && !isTabAllowed('CLIENTE') ||
+    !isTabAllowed(activeRoleView)
+  ) {
+    if ((rawActiveRoleView === 'ADMIN' || rawActiveRoleView === 'GERENTE_COMERCIAL') && isTabAllowed('GERENCIA')) {
+      activeRoleView = 'GERENCIA';
+    } else if (rawActiveRoleView === 'COMERCIAL' && isTabAllowed('VENDEDOR')) {
+      activeRoleView = 'VENDEDOR';
+    } else if (rawActiveRoleView === 'ADMINISTRACION' && isTabAllowed('TESORERIA')) {
+      activeRoleView = 'TESORERIA';
+    } else {
+      activeRoleView = roleTabs[0]?.id || 'GERENCIA';
+    }
+  }
+
+  // Build quick actions list filtered by moduleVisibility
+  const allQuickActions = [
+    {
+      id: 'lead',
+      moduleKey: 'leads' as ModuleKey,
+      variant: 'primary' as const,
+      onClick: onOpenNewLead,
+      icon: PlusCircle,
+      iconClass: 'text-brand-200',
+      title: 'Nuevo Lead',
+      subtitle: 'CRM Comercial',
+      titleClass: '',
+      subClass: 'text-brand-200',
+    },
+    {
+      id: 'hold',
+      moduleKey: 'reservations' as ModuleKey,
+      variant: 'secondary' as const,
+      onClick: onOpenHoldModal,
+      icon: Lock,
+      iconClass: 'text-amber-400',
+      title: 'Bloquear Lote',
+      subtitle: 'Reserva 48hs',
+      titleClass: '',
+      subClass: 'text-slate-300',
+    },
+    {
+      id: 'quote',
+      moduleKey: 'quotes' as ModuleKey,
+      variant: 'outline' as const,
+      onClick: () => onNavigate('quotes'),
+      icon: Calculator,
+      iconClass: 'text-slate-600',
+      title: 'Cotizador',
+      subtitle: 'Planes cuotas',
+      titleClass: 'text-slate-900',
+      subClass: 'text-slate-500',
+    },
+    {
+      id: 'report',
+      moduleKey: 'reports' as ModuleKey,
+      variant: 'outline' as const,
+      onClick: () => onNavigate('reports'),
+      icon: BarChart3,
+      iconClass: 'text-emerald-600',
+      title: 'Reportes',
+      subtitle: 'Exportar CSV/PDF',
+      titleClass: 'text-slate-900',
+      subClass: 'text-slate-500',
+    },
+  ];
+
+  const quickActions = allQuickActions.filter((action) => isModuleEnabled(action.moduleKey));
 
   return (
     <div className="space-y-4">
       {/* Role View Perspective Selector Tabs */}
-      <div className="bg-white p-1.5 rounded-2xl border border-slate-200 shadow-xs flex items-center justify-between gap-1 overflow-x-auto no-scrollbar">
-        <div className="flex items-center gap-1 shrink-0 text-xs font-bold text-slate-500 pl-1 pr-2">
-          <BarChart3 className="w-4 h-4 text-brand-600" />
-          <span className="hidden sm:inline">Perspectiva:</span>
-        </div>
+      {roleTabs.length > 0 && (
+        <div className="bg-white p-1.5 rounded-2xl border border-slate-200 shadow-xs flex items-center justify-between gap-1 overflow-x-auto no-scrollbar">
+          <div className="flex items-center gap-1 shrink-0 text-xs font-bold text-slate-500 pl-1 pr-2">
+            <BarChart3 className="w-4 h-4 text-brand-600" />
+            <span className="hidden sm:inline">Perspectiva:</span>
+          </div>
 
-        <div className="flex items-center gap-1 overflow-x-auto">
-          {roleTabs.map(tab => {
-            const Icon = tab.icon;
-            const isActive = activeRoleView === tab.id || (tab.id === 'GERENCIA' && (activeRoleView === 'ADMIN' || activeRoleView === 'GERENTE_COMERCIAL')) || (tab.id === 'VENDEDOR' && activeRoleView === 'COMERCIAL') || (tab.id === 'TESORERIA' && activeRoleView === 'ADMINISTRACION');
+          <div className="flex items-center gap-1 overflow-x-auto">
+            {roleTabs.map(tab => {
+              const Icon = tab.icon;
+              const isActive = activeRoleView === tab.id || (tab.id === 'GERENCIA' && (activeRoleView === 'ADMIN' || activeRoleView === 'GERENTE_COMERCIAL')) || (tab.id === 'VENDEDOR' && activeRoleView === 'COMERCIAL') || (tab.id === 'TESORERIA' && activeRoleView === 'ADMINISTRACION');
 
-            return (
-              <button
-                key={tab.id}
-                onClick={() => {
-                  setViewOverride(tab.id);
-                  if (onSelectRole) onSelectRole(tab.id as UserRole);
-                }}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap active:scale-95 ${
-                  isActive
-                    ? 'bg-slate-900 text-white shadow-xs'
-                    : 'text-slate-600 hover:bg-slate-100'
-                }`}
-              >
-                <Icon className={`w-3.5 h-3.5 ${isActive ? 'text-amber-400' : 'text-slate-400'}`} />
-                <span>{tab.label}</span>
-              </button>
-            );
-          })}
+              return (
+                <button
+                  key={tab.id}
+                  onClick={() => {
+                    setViewOverride(tab.id);
+                    if (onSelectRole) onSelectRole(tab.id as UserRole);
+                  }}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap active:scale-95 ${
+                    isActive
+                      ? 'bg-slate-900 text-white shadow-xs'
+                      : 'text-slate-600 hover:bg-slate-100'
+                  }`}
+                >
+                  <Icon className={`w-3.5 h-3.5 ${isActive ? 'text-amber-400' : 'text-slate-400'}`} />
+                  <span>{tab.label}</span>
+                </button>
+              );
+            })}
+          </div>
         </div>
-      </div>
+      )}
 
       {/* Quick Actions Bar */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-        <Button
-          variant="primary"
-          onClick={onOpenNewLead}
-          className="h-11 text-xs flex items-center justify-start gap-2 px-3"
+      {quickActions.length > 0 && (
+        <div
+          className={clsx(
+            'grid gap-2',
+            quickActions.length === 1 && 'grid-cols-1',
+            quickActions.length === 2 && 'grid-cols-2',
+            quickActions.length === 3 && 'grid-cols-1 sm:grid-cols-3',
+            quickActions.length >= 4 && 'grid-cols-2 sm:grid-cols-4'
+          )}
         >
-          <PlusCircle className="w-4 h-4 shrink-0 text-brand-200" />
-          <div className="text-left truncate">
-            <span className="block font-bold leading-tight truncate">Nuevo Lead</span>
-            <span className="text-[10px] text-brand-200 font-normal">CRM Comercial</span>
-          </div>
-        </Button>
-
-        <Button
-          variant="secondary"
-          onClick={onOpenHoldModal}
-          className="h-11 text-xs flex items-center justify-start gap-2 px-3"
-        >
-          <Lock className="w-4 h-4 shrink-0 text-amber-400" />
-          <div className="text-left truncate">
-            <span className="block font-bold leading-tight truncate">Bloquear Lote</span>
-            <span className="text-[10px] text-slate-300 font-normal">Reserva 48hs</span>
-          </div>
-        </Button>
-
-        <Button
-          variant="outline"
-          onClick={() => onNavigate('quotes')}
-          className="h-11 text-xs flex items-center justify-start gap-2 px-3"
-        >
-          <Calculator className="w-4 h-4 shrink-0 text-slate-600" />
-          <div className="text-left truncate">
-            <span className="block font-bold text-slate-900 leading-tight truncate">Cotizador</span>
-            <span className="text-[10px] text-slate-500 font-normal">Planes cuotas</span>
-          </div>
-        </Button>
-
-        <Button
-          variant="outline"
-          onClick={() => onNavigate('reports')}
-          className="h-11 text-xs flex items-center justify-start gap-2 px-3"
-        >
-          <BarChart3 className="w-4 h-4 shrink-0 text-emerald-600" />
-          <div className="text-left truncate">
-            <span className="block font-bold text-slate-900 leading-tight truncate">Reportes</span>
-            <span className="text-[10px] text-slate-500 font-normal">Exportar CSV/PDF</span>
-          </div>
-        </Button>
-      </div>
+          {quickActions.map((action) => (
+            <Button
+              key={action.id}
+              variant={action.variant}
+              onClick={action.onClick}
+              className="h-11 text-xs flex items-center justify-start gap-2 px-3"
+            >
+              <action.icon className={`w-4 h-4 shrink-0 ${action.iconClass}`} />
+              <div className="text-left truncate">
+                <span className={`block font-bold leading-tight truncate ${action.titleClass}`}>
+                  {action.title}
+                </span>
+                <span className={`text-[10px] font-normal ${action.subClass}`}>
+                  {action.subtitle}
+                </span>
+              </div>
+            </Button>
+          ))}
+        </div>
+      )}
 
       {/* Global Analytics Filters */}
       <DashboardFilters

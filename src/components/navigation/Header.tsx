@@ -28,6 +28,7 @@ export const Header: React.FC<HeaderProps> = ({
   onOpenPresenterConfig,
   onResetDemo,
   activePresetName,
+  moduleVisibility,
 }) => {
   return (
     <header className="sticky top-0 z-40 bg-slate-900 text-white shadow-md border-b border-slate-800">
@@ -83,7 +84,7 @@ export const Header: React.FC<HeaderProps> = ({
           )}
 
           {/* Operational Center Quick Button */}
-          {onOpenOperationalCenter && (
+          {onOpenOperationalCenter && (!moduleVisibility || moduleVisibility.operational !== false) && (
             <button
               onClick={onOpenOperationalCenter}
               className="px-2.5 py-1.5 rounded-xl bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/30 text-xs font-bold flex items-center gap-1 active:scale-95 transition-all"
