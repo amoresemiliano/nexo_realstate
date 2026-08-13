@@ -1,7 +1,16 @@
 <?php
 // backend/api/index.php
 
-require_once __DIR__ . '/../bootstrap.php';
+// Carga determinística del backend privado para BlueHost, con fallback local.
+$remoteDevPath = '/home/athcomar/nexo_backend_dev/bootstrap.php';
+
+if (file_exists($remoteDevPath)) {
+    require_once $remoteDevPath;
+} else {
+    // Fallback local development
+    require_once __DIR__ . '/../bootstrap.php';
+}
+
 
 use Core\Database;
 
