@@ -5,6 +5,8 @@ import { UserRole } from '../../types';
 
 import { ModuleVisibilityConfig } from '../../config/moduleVisibility';
 
+import { ApiStatusBadge } from './ApiStatusBadge';
+
 interface HeaderProps {
   activeModuleTitle: string;
   userRole?: UserRole;
@@ -110,15 +112,15 @@ export const Header: React.FC<HeaderProps> = ({
         </div>
       </div>
 
-      {/* Sub-bar showing active view title and role */}
-      <div className="bg-slate-950/80 px-3 sm:px-4 py-1.5 flex items-center justify-between border-t border-slate-800/60 text-xs">
+      {/* Sub-bar showing active view title, role and API status */}
+      <div className="bg-slate-950/80 px-3 sm:px-4 py-1.5 flex flex-wrap items-center justify-between border-t border-slate-800/60 text-xs gap-2">
         <div className="font-semibold text-slate-300 flex items-center gap-2 truncate">
           <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping shrink-0" />
           <span className="truncate">Vista: <strong className="text-white">{activeModuleTitle}</strong></span>
         </div>
 
-        <div className="flex items-center gap-2 shrink-0">
-          <span className="text-[10px] text-slate-400 hidden sm:inline-block">Simulador MVP</span>
+        <div className="flex items-center gap-2.5 shrink-0">
+          <ApiStatusBadge />
           <div className="flex items-center gap-1 text-[11px] text-amber-400 font-bold">
             <UserCheck className="w-3.5 h-3.5" />
             <span>{userRole}</span>
