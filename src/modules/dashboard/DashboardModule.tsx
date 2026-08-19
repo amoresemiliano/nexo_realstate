@@ -356,10 +356,15 @@ export const DashboardModule: React.FC<DashboardModuleProps> = ({
         />
       )}
 
-      {(activeRoleView === 'VENDEDOR' || activeRoleView === 'COMERCIAL' || activeRoleView === 'SUPERVISOR') && (
+      {(activeRoleView === 'VENDEDOR' || activeRoleView === 'COMERCIAL' || activeRoleView === 'SUPERVISOR' || activeRoleView === 'GERENCIA' || activeRoleView === 'ADMIN') && (
         <CommercialDashboardView
           metrics={commercialMetrics}
           filter={filter}
+          leads={leads}
+          holds={holds}
+          reservations={reservations}
+          deposits={deposits}
+          campaigns={campaigns}
           onNavigateModule={onNavigate}
         />
       )}

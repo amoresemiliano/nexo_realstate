@@ -13,6 +13,7 @@ import {
   PaymentMethod,
   DepositRejectionReason,
   ReservationCancellationReason,
+  Development,
 } from '../../types';
 import {
   canBlockLot,
@@ -37,6 +38,7 @@ import { ReservationDetailDrawer } from '../../components/reservations/Reservati
 import { ReleaseLotDialog } from '../../components/reservations/ReleaseLotDialog';
 import { CancelReservationDialog } from '../../components/reservations/CancelReservationDialog';
 import { ChangeLotFlow } from '../../components/reservations/ChangeLotFlow';
+import { ManageLotsModal } from '../../components/reservations/ManageLotsModal';
 
 import {
   Clock,
@@ -59,6 +61,7 @@ import {
   Upload,
   ChevronRight,
   User,
+  MapPin,
 } from 'lucide-react';
 
 interface ReservationsModuleProps {
@@ -69,8 +72,11 @@ interface ReservationsModuleProps {
   lots: Lot[];
   leads: Lead[];
   quotes: Quote[];
+  developments?: Development[];
   userRole?: UserRole;
   onChangeUserRole?: (role: UserRole) => void;
+  onCreateLot?: (lot: Lot) => void;
+  onCreateDevelopment?: (dev: Development) => void;
 
   // Domain state action handlers from App.tsx
   onCreateHold: (params: {
@@ -148,6 +154,7 @@ export const ReservationsModule: React.FC<ReservationsModuleProps> = ({
   lots,
   leads,
   quotes,
+  developments,
   userRole = 'VENDEDOR',
   onChangeUserRole,
   onCreateHold,
@@ -160,6 +167,8 @@ export const ReservationsModule: React.FC<ReservationsModuleProps> = ({
   onToggleChecklist,
   onCancelReservation,
   onChangeLot,
+  onCreateLot,
+  onCreateDevelopment,
   onPrepareSale,
 }) => {
   // Navigation Sub-tabs
@@ -173,6 +182,7 @@ export const ReservationsModule: React.FC<ReservationsModuleProps> = ({
 
   // Modal & Drawer State
   const [isCreateHoldOpen, setIsCreateHoldOpen] = useState(false);
+  const [isManageLotsOpen, setIsManageLotsOpen] = useState(false);
   const [isPromiseFormOpen, setIsPromiseFormOpen] = useState(false);
   const [isReportFormOpen, setIsReportFormOpen] = useState(false);
   const [selectedHoldForPromise, setSelectedHoldForPromise] = useState<LotHold | null>(null);
@@ -241,14 +251,25 @@ export const ReservationsModule: React.FC<ReservationsModuleProps> = ({
             </p>
           </div>
 
-          <Button
-            variant="primary"
-            size="md"
-            onClick={() => setIsCreateHoldOpen(true)}
-            className="bg-amber-500 hover:bg-amber-600 text-slate-950 font-extrabold shadow-md"
-          >
-            <Clock className="w-4 h-4" /> Nuevo Bloqueo
-          </Button>
+          <div className="flex flex-wrap items-center gap-2">
+            <Button
+              variant="secondary"
+              size="md"
+              onClick={() => setIsManageLotsOpen(true)}
+              className="bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold border border-slate-700 text-xs"
+            >
+              <MapPin className="w-4 h-4 text-amber-400" /> Gestionar Barrios y Lotes
+            </Button>
+
+            <Button
+              variant="primary"
+              size="md"
+              onClick={() => setIsCreateHoldOpen(true)}
+              className="bg-amber-500 hover:bg-amber-600 text-slate-950 font-extrabold shadow-md text-xs"
+            >
+              <Clock className="w-4 h-4" /> Nuevo Bloqueo
+            </Button>
+          </div>
         </div>
 
         {/* Role Selector Simulation */}
@@ -734,6 +755,20 @@ export const ReservationsModule: React.FC<ReservationsModuleProps> = ({
         entity={selectedEntityToChangeLot}
         lots={lots}
         onConfirmChangeLot={onChangeLot}
+      />
+
+      {/* Modal Carga y Gestión de Barrios y Lotes */}
+      <ManageLotsModal
+        isOpen={isManageLotsOpen}
+        onClose={() => setIsManageLotsOpen(false)}
+        lots={lots}
+        developments={developments || []}
+        onCreateLot={(newLot) => {
+          if (onCreateLot) onCreateLot(newLot);
+        }}
+        onCreateDevelopment={(newDev) => {
+          if (onCreateDevelopment) onCreateDevelopment(newDev);
+        }}
       />
 
       {/* 8. Lightbox visualizador de comprobante */}

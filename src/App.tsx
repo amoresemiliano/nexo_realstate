@@ -985,6 +985,7 @@ export function App() {
             lots={lots}
             leads={leads}
             quotes={quotes}
+            developments={developments}
             userRole={userRole}
             onChangeUserRole={setUserRole}
             onCreateHold={handleCreateHold}
@@ -997,6 +998,8 @@ export function App() {
             onToggleChecklist={handleToggleChecklist}
             onCancelReservation={handleCancelReservation}
             onChangeLot={handleChangeLot}
+            onCreateLot={(newLot) => setLots((prev) => [newLot, ...prev])}
+            onCreateDevelopment={(newDev) => setDevelopments((prev) => [newDev, ...prev])}
             onPrepareSale={(res) => setActiveModule('sales')}
           />
         )}
@@ -1020,6 +1023,7 @@ export function App() {
             notaryOffices={notaryOffices}
             surveyors={surveyors}
             surveys={surveys}
+            permits={permits}
             appointments={appointments}
             tasks={tasks}
             timelineEvents={timelineEvents}
@@ -1035,7 +1039,12 @@ export function App() {
 
         {activeModule === 'works' && <WorksModule />}
 
-        {activeModule === 'campaigns' && <CampaignsModule />}
+        {activeModule === 'campaigns' && (
+          <CampaignsModule
+            campaigns={campaigns}
+            onCreateCampaign={(newCamp) => setCampaigns((prev) => [newCamp, ...prev])}
+          />
+        )}
 
         {activeModule === 'automations' && (
           <AutomationsModule
