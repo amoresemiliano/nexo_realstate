@@ -1,11 +1,33 @@
 import React, { useState, useEffect } from 'react';
-import { Wifi, WifiOff, ShieldCheck, ShieldAlert, RefreshCw } from 'lucide-react';
+import { Wifi, WifiOff, ShieldAlert, RefreshCw } from 'lucide-react';
 import { checkBackendHealth, ApiStatus } from '../../services/apiClient';
+
+/**
+ * Determina de forma centralizada si el entorno actual es DEV o PROD.
+ * DEV: /sistemas/nexo_realstate/dev/, localhost, o import.meta.env.DEV
+ * PROD: /sistemas/nexo_realstate/ (sin /dev/)
+ */
+export const isDevEnvironment = (): boolean => {
+  if (typeof window === 'undefined') return false;
+  const pathname = window.location.pathname;
+  const isMetaDev = Boolean((import.meta as any)?.env?.DEV);
+  return (
+    pathname.includes('/dev/') ||
+    window.location.hostname === 'localhost' ||
+    window.location.hostname === '127.0.0.1' ||
+    isMetaDev
+  );
+};
 
 export const ApiStatusBadge: React.FC = () => {
   const [apiStatus, setApiStatus] = useState<ApiStatus | 'CHECKING'>('CHECKING');
   const [dbStatus, setDbStatus] = useState<string>('unknown');
   const [isChecking, setIsChecking] = useState<boolean>(false);
+
+  // En producción el indicador técnico permanece oculto de la vista del cliente
+  if (!isDevEnvironment()) {
+    return null;
+  }
 
   const runHealthCheck = async () => {
     setIsChecking(true);

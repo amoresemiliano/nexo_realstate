@@ -855,6 +855,7 @@ export function App() {
         onOpenOperationalCenter={() => handleSelectModule('operational')}
         onResetDemo={handleResetDemoData}
         onOpenPresenterConfig={() => setIsPresenterConfigOpen(true)}
+        activePreset={visibilityState.preset}
         moduleVisibility={visibilityState.config}
       />
 
@@ -1057,6 +1058,7 @@ export function App() {
         activeModule={activeModule}
         onSelectModule={(mod) => handleSelectModule(mod)}
         onOpenMenu={() => setIsMenuOpen(true)}
+        activePreset={visibilityState.preset}
         moduleVisibility={visibilityState.config}
       />
 
