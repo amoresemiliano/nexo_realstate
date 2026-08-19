@@ -165,7 +165,7 @@ export const PresenterConfigModal: React.FC<PresenterConfigModalProps> = ({
                     onClick={onResetPresentation}
                     className="text-amber-400 hover:underline font-bold text-[11px] flex items-center gap-1"
                   >
-                    <RotateCcw className="w-3 h-3" /> Restablecer a Etapa 1
+                    <RotateCcw className="w-3 h-3" /> Restablecer a CRM Operativo
                   </button>
                 </div>
               )}

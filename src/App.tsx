@@ -187,9 +187,9 @@ export function App() {
   };
 
   const handleResetPresentation = () => {
-    const defaultPreset = PRESETS.ETAPA_1_CLIENTE;
-    setVisibilityState({ config: { ...defaultPreset.config }, preset: 'ETAPA_1_CLIENTE' });
-    saveVisibilityConfig({ ...defaultPreset.config }, 'ETAPA_1_CLIENTE');
+    const defaultPreset = PRESETS.CRM_OPERATIVO;
+    setVisibilityState({ config: { ...defaultPreset.config }, preset: 'CRM_OPERATIVO' });
+    saveVisibilityConfig({ ...defaultPreset.config }, 'CRM_OPERATIVO');
   };
 
   // Safe navigation guard checking module visibility

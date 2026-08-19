@@ -14,7 +14,7 @@ export type ModuleKey =
   | 'automations'
   | 'developments';
 
-export type PresetKey = 'ETAPA_1_CLIENTE' | 'COMERCIAL_ONLY' | 'COBRANZAS_ONLY' | 'FULL_MVP' | 'CUSTOM';
+export type PresetKey = 'CRM_OPERATIVO' | 'ETAPA_1_CLIENTE' | 'COMERCIAL_ONLY' | 'COBRANZAS_ONLY' | 'FULL_MVP' | 'CUSTOM';
 
 export interface ModuleDefinition {
   key: ModuleKey;
@@ -128,8 +128,28 @@ export const MODULE_CATALOG: ModuleDefinition[] = [
 export type ModuleVisibilityConfig = Record<ModuleKey, boolean>;
 
 export const PRESETS: Record<Exclude<PresetKey, 'CUSTOM'>, { name: string; description: string; config: ModuleVisibilityConfig }> = {
+  CRM_OPERATIVO: {
+    name: 'CRM Operativo (Fase P1D - Por Defecto DEV)',
+    description: 'Alcance comercial consolidado: Dashboard Comercial, Leads, CRM Preventa, Campañas de MKT y Bloqueos/Señas.',
+    config: {
+      dashboard: true,
+      leads: true,
+      campaigns: true,
+      reservations: true,
+      quotes: false,
+      lots: false,
+      sales: false,
+      payments: false,
+      reports: false,
+      legal: false,
+      works: false,
+      automations: false,
+      operational: false,
+      developments: false,
+    },
+  },
   ETAPA_1_CLIENTE: {
-    name: 'Etapa 1 Cliente (Demo Recomendada)',
+    name: 'Etapa 1 Cliente (Demo Extendida)',
     description: 'Enfoque Comercial + Cobranzas. Oculta Legales, Obras, Automatizaciones y Centro Operativo.',
     config: {
       dashboard: true,
@@ -149,7 +169,7 @@ export const PRESETS: Record<Exclude<PresetKey, 'CUSTOM'>, { name: string; descr
     },
   },
   COMERCIAL_ONLY: {
-    name: 'Solo Módulo Comercial',
+    name: 'Solo Módulo Comercial Extendida',
     description: 'Muestra únicamente Captación, CRM, Masterplan, Cotizaciones y Señas.',
     config: {
       dashboard: true,
@@ -221,7 +241,7 @@ export const getStoredVisibilityConfig = (): { config: ModuleVisibilityConfig; p
     if (storedConfig) {
       const parsed = JSON.parse(storedConfig) as ModuleVisibilityConfig;
       // Ensure all keys exist
-      const fullConfig = { ...PRESETS.ETAPA_1_CLIENTE.config, ...parsed };
+      const fullConfig = { ...PRESETS.CRM_OPERATIVO.config, ...parsed };
       return {
         config: fullConfig,
         preset: storedPreset || 'CUSTOM',
@@ -232,8 +252,8 @@ export const getStoredVisibilityConfig = (): { config: ModuleVisibilityConfig; p
   }
 
   return {
-    config: { ...PRESETS.ETAPA_1_CLIENTE.config },
-    preset: 'ETAPA_1_CLIENTE',
+    config: { ...PRESETS.CRM_OPERATIVO.config },
+    preset: 'CRM_OPERATIVO',
   };
 };
 
