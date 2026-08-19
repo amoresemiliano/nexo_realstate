@@ -1,7 +1,7 @@
 import React from 'react';
 import { LayoutDashboard, MapPin, Users, Target, BookmarkCheck, Calculator, MoreHorizontal } from 'lucide-react';
 import { clsx } from 'clsx';
-import { ModuleVisibilityConfig, PresetKey } from '../../config/moduleVisibility';
+import { ModuleVisibilityConfig, PresetKey, ENFORCE_CLIENT_MODE } from '../../config/moduleVisibility';
 
 interface BottomNavProps {
   activeModule: string;
@@ -18,7 +18,7 @@ export const BottomNav: React.FC<BottomNavProps> = ({
   moduleVisibility,
   activePreset,
 }) => {
-  const isCrmOperativo = activePreset === 'CRM_OPERATIVO';
+  const isCrmOperativo = activePreset === 'CRM_OPERATIVO' || ENFORCE_CLIENT_MODE;
 
   const isModuleEnabled = (id: string) => {
     if (!moduleVisibility) return true;

@@ -2,7 +2,7 @@ import React from 'react';
 import { Building2, Bell, Menu, ChevronDown, UserCheck, Zap, SlidersHorizontal } from 'lucide-react';
 import { mockDevelopment } from '../../data/mockData';
 import { UserRole } from '../../types';
-import { ModuleVisibilityConfig, PresetKey } from '../../config/moduleVisibility';
+import { ModuleVisibilityConfig, PresetKey, ENFORCE_CLIENT_MODE } from '../../config/moduleVisibility';
 import { ApiStatusBadge } from './ApiStatusBadge';
 
 interface HeaderProps {
@@ -32,7 +32,7 @@ export const Header: React.FC<HeaderProps> = ({
   activePreset,
   moduleVisibility,
 }) => {
-  const isCrmOperativo = activePreset === 'CRM_OPERATIVO';
+  const isCrmOperativo = activePreset === 'CRM_OPERATIVO' || ENFORCE_CLIENT_MODE;
 
   return (
     <header className="sticky top-0 z-40 bg-slate-900 text-white shadow-md border-b border-slate-800">
