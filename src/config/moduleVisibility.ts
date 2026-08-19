@@ -230,10 +230,24 @@ export const PRESETS: Record<Exclude<PresetKey, 'CUSTOM'>, { name: string; descr
   },
 };
 
+/**
+ * Flag centralizado para forzar el modo cliente estricto (CRM_OPERATIVO).
+ * Prevalece sobre cualquier configuración previa o histórica en localStorage.
+ * Para deshabilitar en el futuro y volver a permitir presets dinámicos, cambiar a false.
+ */
+export const ENFORCE_CLIENT_MODE = true;
+
 const STORAGE_KEY_VISIBILITY = 'nexo-demo-module-visibility';
 const STORAGE_KEY_PRESET = 'nexo-demo-module-preset';
 
 export const getStoredVisibilityConfig = (): { config: ModuleVisibilityConfig; preset: PresetKey } => {
+  if (ENFORCE_CLIENT_MODE) {
+    return {
+      config: { ...PRESETS.CRM_OPERATIVO.config },
+      preset: 'CRM_OPERATIVO',
+    };
+  }
+
   try {
     const storedConfig = localStorage.getItem(STORAGE_KEY_VISIBILITY);
     const storedPreset = localStorage.getItem(STORAGE_KEY_PRESET) as PresetKey | null;
@@ -258,6 +272,9 @@ export const getStoredVisibilityConfig = (): { config: ModuleVisibilityConfig; p
 };
 
 export const saveVisibilityConfig = (config: ModuleVisibilityConfig, preset: PresetKey) => {
+  if (ENFORCE_CLIENT_MODE) {
+    return;
+  }
   try {
     localStorage.setItem(STORAGE_KEY_VISIBILITY, JSON.stringify(config));
     localStorage.setItem(STORAGE_KEY_PRESET, preset);
