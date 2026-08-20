@@ -136,7 +136,7 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess }) => {
             <span className="font-extrabold text-amber-400 uppercase tracking-wider block text-[10px]">Credenciales DEV</span>
             <p>Si creó un usuario mediante CLI:</p>
             <code className="text-slate-300 font-mono text-[10px] block bg-slate-900 p-1.5 rounded-lg border border-slate-800">
-              php backend/tools/create_dev_admin.php
+              php backend/tools/create_dev_admin.php admin@vegendigital.com "Admin General"
             </code>
           </div>
         </div>

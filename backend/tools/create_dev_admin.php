@@ -2,7 +2,10 @@
 // backend/tools/create_dev_admin.php
 /**
  * CLI Tool de Seguridad para creación de Usuario Administrador DEV
- * Uso CLI: php backend/tools/create_dev_admin.php admin@vegendigital.com MiPasswordSeguro123 "Admin Nexo"
+ * Uso CLI seguro: php backend/tools/create_dev_admin.php admin@vegendigital.com "Admin General"
+ * 
+ * La contraseña se solicita de forma interactiva e invisible para evitar exposición
+ * en el historial de la consola, archivos de log o lista de procesos.
  */
 
 require_once __DIR__ . '/../bootstrap.php';
@@ -10,34 +13,81 @@ require_once __DIR__ . '/../bootstrap.php';
 use Core\Database;
 
 if (php_sapi_name() !== 'cli') {
-    echo "Error: Este script debe ser ejecutado exclusivamente mediante la consola CLI.\n";
+    fwrite(STDERR, "Error: Este script debe ser ejecutado exclusivamente mediante consola CLI.\n");
     exit(1);
 }
 
+// 1. Validar parámetros CLI (Únicamente email y nombre opcional)
 $email = $argv[1] ?? null;
-$password = $argv[2] ?? null;
-$name = $argv[3] ?? 'Administrador DEV';
+$name = $argv[2] ?? 'Administrador DEV';
 
 if (!$email) {
-    fwrite(STDERR, "Uso: php backend/tools/create_dev_admin.php <email> [password] [nombre]\n");
-    fwrite(STDERR, "Ejemplo: php backend/tools/create_dev_admin.php admin@vegendigital.com SecretPass123 \"Admin General\"\n");
+    fwrite(STDERR, "Uso CLI Seguro: php backend/tools/create_dev_admin.php <email> [nombre]\n");
+    fwrite(STDERR, "Ejemplo:        php backend/tools/create_dev_admin.php admin@vegendigital.com \"Admin General\"\n");
     exit(1);
 }
 
-if (!$password) {
-    fwrite(STDOUT, "Ingrese la contraseña para $email: ");
-    $password = trim(fgets(STDIN));
-}
-
-if (strlen($password) < 6) {
-    fwrite(STDERR, "Error: La contraseña debe tener al menos 6 caracteres.\n");
+$cleanEmail = strtolower(trim($email));
+if (!filter_var($cleanEmail, FILTER_VALIDATE_EMAIL)) {
+    fwrite(STDERR, "[X] Error: El correo electrónico proporcionado ('$email') no es válido.\n");
     exit(1);
 }
 
+// Advertir si intentó pasar más argumentos (ej: contraseña por argumento)
+if ($argc > 3) {
+    fwrite(STDERR, "[!] ADVERTENCIA DE SEGURIDAD: Se detectaron argumentos adicionales en la línea de comandos.\n");
+    fwrite(STDERR, "    Las contraseñas NO deben enviarse por argumentos para no quedar expuestas en logs o process list.\n");
+    fwrite(STDERR, "    Uso correcto: php backend/tools/create_dev_admin.php <email> [nombre]\n\n");
+}
+
+/**
+ * Función para solicitar entrada de texto oculta en terminal CLI (Linux/Unix/BlueHost)
+ */
+function readSecretPrompt(string $prompt): string {
+    fwrite(STDOUT, $prompt);
+    $isWindows = strtoupper(substr(PHP_OS, 0, 3)) === 'WIN';
+
+    if (!$isWindows) {
+        shell_exec('stty -echo 2>/dev/null');
+    }
+
+    try {
+        $input = fgets(STDIN);
+        $secret = $input !== false ? trim($input) : '';
+    } finally {
+        if (!$isWindows) {
+            shell_exec('stty echo 2>/dev/null');
+        }
+        fwrite(STDOUT, "\n");
+    }
+
+    return $secret;
+}
+
+// 2. Solicitud interactiva y segura de contraseña
+$password = readSecretPrompt("Ingrese la contraseña para $cleanEmail: ");
+if (empty($password)) {
+    fwrite(STDERR, "[X] Error: La contraseña no puede estar vacía.\n");
+    exit(1);
+}
+
+$passwordConfirm = readSecretPrompt("Confirme la contraseña para $cleanEmail: ");
+
+if ($password !== $passwordConfirm) {
+    fwrite(STDERR, "[X] Error: Las contraseñas ingresadas no coinciden.\n");
+    exit(1);
+}
+
+if (strlen($password) < 12) {
+    fwrite(STDERR, "[X] Error de Seguridad: La contraseña debe contener al menos 12 caracteres.\n");
+    exit(1);
+}
+
+// 3. Ejecutar persistencia en MySQL PDO
 try {
     $pdo = Database::connection();
 
-    // 1. Asegurar Organización DEV
+    // Asegurar Organización DEV
     $stmtOrg = $pdo->prepare("SELECT id FROM organizations WHERE name = 'Nexo Desarrollos DEV' LIMIT 1");
     $stmtOrg->execute();
     $org = $stmtOrg->fetch();
@@ -52,11 +102,10 @@ try {
         fwrite(STDOUT, "[i] Organización DEV existente seleccionada (ID: $orgId).\n");
     }
 
-    // 2. Hash de contraseña seguro
+    // Generar Hash BCRYPT seguro
     $passwordHash = password_hash($password, PASSWORD_BCRYPT);
-    $cleanEmail = strtolower(trim($email));
 
-    // 3. Crear o actualizar Usuario ADMIN
+    // Crear o actualizar usuario ADMIN
     $stmtUser = $pdo->prepare("SELECT id FROM users WHERE email = :email LIMIT 1");
     $stmtUser->execute(['email' => $cleanEmail]);
     $user = $stmtUser->fetch();
@@ -89,10 +138,10 @@ try {
         fwrite(STDOUT, "[+] Usuario ADMIN '$cleanEmail' (ID: $newUserId) creado exitosamente.\n");
     }
 
-    fwrite(STDOUT, "[✓] Proceso completado. Usuario listo para autenticarse por /api/v1/auth/login.\n");
+    fwrite(STDOUT, "[✓] Proceso completado. Usuario listo para autenticarse vía /api/v1/auth/login.\n");
     exit(0);
 
 } catch (\Throwable $e) {
-    fwrite(STDERR, "[X] Error al crear usuario DEV: " . $e->getMessage() . "\n");
+    fwrite(STDERR, "[X] Error en base de datos al crear usuario DEV: " . $e->getMessage() . "\n");
     exit(1);
 }
