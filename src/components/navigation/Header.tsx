@@ -1,5 +1,5 @@
 import React from 'react';
-import { Building2, Bell, Menu, ChevronDown, UserCheck, Zap, SlidersHorizontal } from 'lucide-react';
+import { Building2, Bell, Menu, ChevronDown, UserCheck, Zap, SlidersHorizontal, LogOut } from 'lucide-react';
 import { mockDevelopment } from '../../data/mockData';
 import { UserRole } from '../../types';
 import { ModuleVisibilityConfig, PresetKey, ENFORCE_CLIENT_MODE } from '../../config/moduleVisibility';
@@ -8,12 +8,14 @@ import { ApiStatusBadge } from './ApiStatusBadge';
 interface HeaderProps {
   activeModuleTitle: string;
   userRole?: UserRole;
+  userName?: string;
   unreadCount?: number;
   onOpenMenu: () => void;
   onOpenNotifications: () => void;
   onOpenOperationalCenter?: () => void;
   onOpenPresenterConfig?: () => void;
   onResetDemo?: () => void;
+  onLogout?: () => void;
   activePresetName?: string;
   activePreset?: PresetKey;
   moduleVisibility?: ModuleVisibilityConfig;
@@ -22,12 +24,14 @@ interface HeaderProps {
 export const Header: React.FC<HeaderProps> = ({
   activeModuleTitle,
   userRole = 'VENDEDOR',
+  userName,
   unreadCount = 0,
   onOpenMenu,
   onOpenNotifications,
   onOpenOperationalCenter,
   onOpenPresenterConfig,
   onResetDemo,
+  onLogout,
   activePresetName,
   activePreset,
   moduleVisibility,
@@ -131,8 +135,18 @@ export const Header: React.FC<HeaderProps> = ({
           <ApiStatusBadge />
           <div className="flex items-center gap-1 text-[11px] text-amber-400 font-bold">
             <UserCheck className="w-3.5 h-3.5" />
-            <span>{userRole}</span>
+            <span>{userName ? `${userName} (${userRole})` : userRole}</span>
           </div>
+          {onLogout && (
+            <button
+              onClick={onLogout}
+              title="Cerrar Sesión"
+              className="p-1 rounded-lg bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/30 text-[10px] font-bold flex items-center gap-1 transition-all cursor-pointer"
+            >
+              <LogOut className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">Salir</span>
+            </button>
+          )}
         </div>
       </div>
     </header>

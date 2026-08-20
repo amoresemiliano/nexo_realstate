@@ -11,16 +11,22 @@ if (file_exists($remoteDevPath)) {
     require_once __DIR__ . '/../bootstrap.php';
 }
 
-
+use Core\Request;
+use Core\Response;
+use Core\Router;
 use Core\Database;
 
-header('Content-Type: application/json; charset=utf-8');
+use Controllers\AuthController;
+use Controllers\LeadController;
 
-$requestUri = $_SERVER['REQUEST_URI'] ?? '/';
-// Clean URI for local testing or prod paths (removing query string)
-$path = parse_url($requestUri, PHP_URL_PATH);
+use Middleware\AuthMiddleware;
+use Middleware\CsrfMiddleware;
 
-if (preg_match('#/api/v1/health$#', $path)) {
+$request = new Request();
+$router = new Router();
+
+// 1. Health check endpoint
+$router->get('/api/v1/health', function() {
     $dbStatus = 'unknown';
     $statusCode = 200;
 
@@ -33,43 +39,32 @@ if (preg_match('#/api/v1/health$#', $path)) {
             $dbStatus = 'error';
             $statusCode = 500;
         }
-    } catch (\Exception $e) {
+    } catch (\Throwable $e) {
         $dbStatus = 'error';
         $statusCode = 500;
-        // El mensaje real no se expone al cliente
     }
 
-    http_response_code($statusCode);
-    
     if ($statusCode === 200) {
-        echo json_encode([
-            "success" => true,
-            "data" => [
-                "service" => "Nexo Desarrollos API",
-                "status" => "ok",
-                "environment" => getenv('NEXO_ENV') ?: 'dev',
-                "database" => $dbStatus
-            ]
+        Response::success([
+            "service" => "Nexo Desarrollos API",
+            "status" => "ok",
+            "environment" => getenv('NEXO_ENV') ?: 'dev',
+            "database" => $dbStatus
         ]);
     } else {
-        echo json_encode([
-            "success" => false,
-            "error" => [
-                "code" => "DATABASE_ERROR",
-                "message" => "Ocurrió un error al verificar la conexión con la base de datos."
-            ]
-        ]);
+        Response::error("DATABASE_ERROR", "Ocurrió un error al verificar la conexión con la base de datos.", 500);
     }
-    exit;
-}
+});
 
-// 404 para el resto temporalmente en esta iteración
-http_response_code(404);
-echo json_encode([
-    "success" => false,
-    "error" => [
-        "code" => "NOT_FOUND",
-        "message" => "Ruta no encontrada."
-    ]
-]);
-exit;
+// 2. Auth Endpoints
+$router->get('/api/v1/auth/csrf', [AuthController::class, 'csrf']);
+$router->post('/api/v1/auth/login', [AuthController::class, 'login']);
+$router->get('/api/v1/auth/me', [AuthController::class, 'me']);
+$router->post('/api/v1/auth/logout', [AuthController::class, 'logout'], [CsrfMiddleware::class]);
+
+// 3. Leads Endpoints
+$router->get('/api/v1/leads', [LeadController::class, 'index'], [AuthMiddleware::class]);
+$router->post('/api/v1/leads', [LeadController::class, 'store'], [AuthMiddleware::class, CsrfMiddleware::class]);
+
+// Dispatch route
+$router->dispatch($request);

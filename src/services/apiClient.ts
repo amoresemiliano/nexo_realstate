@@ -2,17 +2,16 @@
  * src/services/apiClient.ts
  * 
  * Cliente HTTP unificado para el Frontend de Nexo Desarrollos.
- * Cumple con los principios SOLID (Single Responsibility, Dependency Inversion)
- * y resuelve rutas same-origin relativas de forma determinística bajo /sistemas/nexo_realstate/dev/
+ * Soporta credenciales same-origin para sesión PHP y gestión automática de X-CSRF-TOKEN.
  */
 
 export type ApiStatus = 
-  | 'OK'                  // 200-299: API disponible y solicitud exitosa
-  | 'UNAUTHENTICATED'     // 401: Sesión no autenticada (no bloquea la aplicación)
-  | 'FORBIDDEN'           // 403: Sin permisos suficientes
-  | 'NOT_FOUND'           // 404: Recurso o ruta no encontrada
-  | 'SERVER_ERROR'        // 500-599: Error interno del backend
-  | 'NETWORK_ERROR'       // Error de conexión / red no disponible
+  | 'OK'                  // 200-299: Solicitud exitosa
+  | 'UNAUTHENTICATED'     // 401: Sesión no autenticada
+  | 'FORBIDDEN'           // 403: Sin permisos / CSRF inválido
+  | 'NOT_FOUND'           // 404: Recurso no encontrado
+  | 'SERVER_ERROR'        // 500-599: Error interno backend
+  | 'NETWORK_ERROR'       // Error de conexión
   | 'CLIENT_ERROR';       // 400-499 otros errores de cliente
 
 export interface ApiResponse<T = any> {
@@ -32,11 +31,16 @@ export interface HealthCheckData {
   database: string;
 }
 
-/**
- * Resuelve determinísticamente la URL base de la API para evitar llamadas a la raíz del dominio.
- * Si el navegador está en https://www.vegendigital.com/sistemas/nexo_realstate/dev/
- * la URL resultante para la API será /sistemas/nexo_realstate/dev/api/v1
- */
+let activeCsrfToken: string | null = null;
+
+export const setCsrfToken = (token: string | null) => {
+  activeCsrfToken = token;
+};
+
+export const getCsrfToken = (): string | null => {
+  return activeCsrfToken;
+};
+
 export const getApiBaseUrl = (): string => {
   if (typeof window === 'undefined') {
     return '/api/v1';
@@ -48,14 +52,10 @@ export const getApiBaseUrl = (): string => {
     basePath = basePath.substring(0, basePath.lastIndexOf('/') + 1);
   }
   
-  // Garantizar que /api/v1 se concatene de forma relativa al webroot del entorno dev
   const fullApiPath = `${basePath}api/v1`.replace(/\/+/g, '/');
   return fullApiPath;
 };
 
-/**
- * Realiza peticiones HTTP controladas categorizando el tipo de respuesta/error.
- */
 export async function apiRequest<T = any>(
   endpoint: string,
   options: RequestInit = {}
@@ -69,8 +69,13 @@ export async function apiRequest<T = any>(
     'Accept': 'application/json'
   };
 
+  if (activeCsrfToken) {
+    defaultHeaders['X-CSRF-TOKEN'] = activeCsrfToken;
+  }
+
   try {
     const response = await fetch(url, {
+      credentials: 'same-origin',
       ...options,
       headers: {
         ...defaultHeaders,
@@ -84,10 +89,15 @@ export async function apiRequest<T = any>(
     try {
       jsonBody = await response.json();
     } catch {
-      // La respuesta no fue JSON válido
+      // Ignorar si la respuesta no es JSON válido
     }
 
-    if (response.ok) {
+    // Actualizar CSRF token si el backend lo devuelve en el payload
+    if (jsonBody?.data?.csrfToken) {
+      setCsrfToken(jsonBody.data.csrfToken);
+    }
+
+    if (response.ok && jsonBody?.success !== false) {
       return {
         status: 'OK',
         httpStatus,
@@ -95,12 +105,14 @@ export async function apiRequest<T = any>(
       };
     }
 
-    // Clasificación determinística de estados HTTP
+    const errorMessage = jsonBody?.error?.message || `Error de servidor HTTP ${httpStatus}`;
+    const errorCode = jsonBody?.error?.code || 'API_ERROR';
+
     if (httpStatus === 401) {
       return {
         status: 'UNAUTHENTICATED',
         httpStatus,
-        error: jsonBody?.error ?? { code: 'UNAUTHORIZED', message: 'Sesión no autenticada.' },
+        error: { code: errorCode || 'UNAUTHORIZED', message: errorMessage },
       };
     }
 
@@ -108,7 +120,7 @@ export async function apiRequest<T = any>(
       return {
         status: 'FORBIDDEN',
         httpStatus,
-        error: jsonBody?.error ?? { code: 'FORBIDDEN', message: 'Acceso no autorizado.' },
+        error: { code: errorCode || 'FORBIDDEN', message: errorMessage },
       };
     }
 
@@ -116,7 +128,7 @@ export async function apiRequest<T = any>(
       return {
         status: 'NOT_FOUND',
         httpStatus,
-        error: jsonBody?.error ?? { code: 'NOT_FOUND', message: 'Recurso no encontrado.' },
+        error: { code: errorCode || 'NOT_FOUND', message: errorMessage },
       };
     }
 
@@ -124,18 +136,17 @@ export async function apiRequest<T = any>(
       return {
         status: 'SERVER_ERROR',
         httpStatus,
-        error: jsonBody?.error ?? { code: 'SERVER_ERROR', message: 'Error interno del servidor.' },
+        error: { code: errorCode || 'SERVER_ERROR', message: errorMessage },
       };
     }
 
     return {
       status: 'CLIENT_ERROR',
       httpStatus,
-      error: jsonBody?.error ?? { code: 'CLIENT_ERROR', message: `Error HTTP ${httpStatus}` },
+      error: { code: errorCode, message: errorMessage },
     };
 
   } catch (err) {
-    // Error de red u offline (fetch falló)
     return {
       status: 'NETWORK_ERROR',
       error: {
@@ -146,9 +157,6 @@ export async function apiRequest<T = any>(
   }
 }
 
-/**
- * Consulta el estado de salud del backend (/api/v1/health).
- */
 export async function checkBackendHealth(): Promise<ApiResponse<HealthCheckData>> {
   return apiRequest<HealthCheckData>('/health');
 }

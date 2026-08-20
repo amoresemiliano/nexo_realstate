@@ -125,7 +125,16 @@ import { LotDetailSheet } from './components/modals/LotDetailSheet';
 import { Lot360ViewModal } from './components/lots/Lot360ViewModal';
 import { NotificationsSheet } from './components/modals/NotificationsSheet';
 
+// Auth & Persistence Services (P2A Foundation)
+import { AuthUser, getCurrentUser, logout as logoutAuth } from './services/authService';
+import { fetchLeadsApi, createLeadApi, mapBackendLeadToFrontend } from './services/leadService';
+import { LoginView } from './components/auth/LoginView';
+
 export function App() {
+  // P2A Auth & Session State
+  const [authUser, setAuthUser] = useState<AuthUser | null>(null);
+  const [isAuthChecking, setIsAuthChecking] = useState<boolean>(true);
+
   // Navigation & Role State
   const [activeModule, setActiveModule] = useState<string>('operational');
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -201,6 +210,54 @@ export function App() {
     } else {
       setActiveModule(mod);
     }
+  };
+
+  // P2A: Load Real Leads from API
+  const loadRealLeadsFromApi = async () => {
+    try {
+      const res = await fetchLeadsApi();
+      if (res.status === 'OK' && Array.isArray(res.data?.leads)) {
+        const mappedLeads = res.data.leads.map(mapBackendLeadToFrontend);
+        if (mappedLeads.length > 0) {
+          setLeads(mappedLeads);
+        }
+      }
+    } catch (err) {
+      console.warn('Backend API leads unreachable, maintaining state:', err);
+    }
+  };
+
+  // P2A: Check active PHP Session on App Mount
+  useEffect(() => {
+    const verifySession = async () => {
+      try {
+        const res = await getCurrentUser();
+        if (res.status === 'OK' && res.data?.user) {
+          setAuthUser(res.data.user);
+          setUserRole(res.data.user.role as UserRole);
+          await loadRealLeadsFromApi();
+        } else {
+          setAuthUser(null);
+        }
+      } catch (err) {
+        setAuthUser(null);
+      } finally {
+        setIsAuthChecking(false);
+      }
+    };
+
+    verifySession();
+  }, []);
+
+  const handleLoginSuccess = async (user: AuthUser) => {
+    setAuthUser(user);
+    setUserRole(user.role as UserRole);
+    await loadRealLeadsFromApi();
+  };
+
+  const handleLogout = async () => {
+    await logoutAuth();
+    setAuthUser(null);
   };
 
   // Redirect to dashboard if currently viewing a module that gets disabled
@@ -781,8 +838,33 @@ export function App() {
     );
   };
 
-  const handleCreateLead = (newLead: Lead) => {
-    setLeads(prev => [newLead, ...prev]);
+  const handleCreateLead = async (newLead: Lead) => {
+    const fullName = newLead.fullName || 'Nuevo Lead';
+    const nameParts = fullName.trim().split(' ');
+    const firstName = nameParts[0] || 'Lead';
+    const lastName = nameParts.slice(1).join(' ') || 'General';
+
+    try {
+      const res = await createLeadApi({
+        firstName,
+        lastName,
+        email: newLead.email,
+        phone: newLead.phone,
+        source: (newLead.source || newLead.channel || 'Carga Manual') as string,
+        status: newLead.status || 'NUEVO',
+        notes: newLead.notes || '',
+      });
+
+      if (res.status === 'OK' && res.data?.lead) {
+        const created = mapBackendLeadToFrontend(res.data.lead);
+        setLeads((prev) => [created, ...prev]);
+        return;
+      }
+    } catch (err) {
+      console.warn('API de Leads no disponible, guardando en estado local:', err);
+    }
+
+    setLeads((prev) => [newLead, ...prev]);
   };
 
   const handleUpdateLead = (leadOrId: Lead | string, updates?: Partial<Lead>) => {
@@ -829,6 +911,21 @@ export function App() {
   // Unread Notification Count
   const unreadCount = autoNotifications.filter(n => !n.readAt).length;
 
+  if (isAuthChecking) {
+    return (
+      <div className="min-h-screen bg-slate-950 text-white flex items-center justify-center p-4 select-none">
+        <div className="text-center space-y-3">
+          <div className="w-10 h-10 border-4 border-brand-500 border-t-transparent rounded-full animate-spin mx-auto shadow-lg shadow-brand-500/30" />
+          <p className="text-xs font-bold text-slate-400">Verificando sesión activa en Nexo...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!authUser) {
+    return <LoginView onLoginSuccess={handleLoginSuccess} />;
+  }
+
   return (
     <div className="min-h-screen bg-slate-100 flex flex-col font-sans text-slate-900 pb-20">
       {/* Toast notice when an unincluded module is triggered */}
@@ -849,12 +946,14 @@ export function App() {
       <Header
         activeModuleTitle={moduleTitles[activeModule] || 'Nexo Desarrollos'}
         userRole={userRole}
+        userName={authUser?.name}
         unreadCount={unreadCount}
         onOpenMenu={() => setIsMenuOpen(true)}
         onOpenNotifications={() => setIsNotificationsOpen(true)}
         onOpenOperationalCenter={() => handleSelectModule('operational')}
         onResetDemo={handleResetDemoData}
         onOpenPresenterConfig={() => setIsPresenterConfigOpen(true)}
+        onLogout={handleLogout}
         activePreset={visibilityState.preset}
         moduleVisibility={visibilityState.config}
       />

@@ -1,84 +1,66 @@
 /**
  * src/services/authService.ts
  * 
- * Servicio de autenticación con integración progresiva para Nexo Desarrollos.
- * Permite manejar la sesión sin bloquear la interfaz navegable del MVP en entorno DEV.
+ * Servicio frontend de Autenticación mediante sesión PHP same-origin y CSRF.
  */
 
-import { apiRequest, ApiResponse, ApiStatus } from './apiClient';
-import { UserRole } from '../types';
+import { apiRequest, setCsrfToken, ApiResponse } from './apiClient';
 
 export interface AuthUser {
-  id: number;
-  email: string;
+  id: string;
+  organizationId: string;
   name: string;
-  role: UserRole;
+  email: string;
+  role: 'ADMIN' | 'SUPERVISOR' | 'VENDEDOR';
 }
 
-export interface AuthSessionState {
-  isAuthenticated: boolean;
-  user: AuthUser | null;
-  status: ApiStatus;
-  isLoading: boolean;
-  errorMessage: string | null;
+export interface LoginCredentials {
+  email: string;
+  password: string;
 }
 
-/**
- * Consulta el estado actual de la sesión con el backend.
- * Si el servidor responde 401 (UNAUTHENTICATED) o la API no está lista,
- * no bloquea la UI del MVP.
- */
-export async function checkCurrentSession(): Promise<AuthSessionState> {
-  const response: ApiResponse<AuthUser> = await apiRequest('/auth/me');
+export interface AuthSessionResponse {
+  user: AuthUser;
+  csrfToken: string;
+}
 
-  if (response.status === 'OK' && response.data) {
-    return {
-      isAuthenticated: true,
-      user: response.data,
-      status: 'OK',
-      isLoading: false,
-      errorMessage: null,
-    };
+export async function fetchCsrfToken(): Promise<string | null> {
+  const res = await apiRequest<{ csrfToken: string }>('/auth/csrf');
+  if (res.status === 'OK' && res.data?.csrfToken) {
+    setCsrfToken(res.data.csrfToken);
+    return res.data.csrfToken;
+  }
+  return null;
+}
+
+export async function login(credentials: LoginCredentials): Promise<ApiResponse<AuthSessionResponse>> {
+  // Asegurar CSRF token previo antes del login
+  await fetchCsrfToken();
+
+  const res = await apiRequest<AuthSessionResponse>('/auth/login', {
+    method: 'POST',
+    body: JSON.stringify(credentials),
+  });
+
+  if (res.status === 'OK' && res.data?.csrfToken) {
+    setCsrfToken(res.data.csrfToken);
   }
 
-  if (response.status === 'UNAUTHENTICATED') {
-    return {
-      isAuthenticated: false,
-      user: null,
-      status: 'UNAUTHENTICATED',
-      isLoading: false,
-      errorMessage: null,
-    };
+  return res;
+}
+
+export async function getCurrentUser(): Promise<ApiResponse<AuthSessionResponse>> {
+  const res = await apiRequest<AuthSessionResponse>('/auth/me');
+  if (res.status === 'OK' && res.data?.csrfToken) {
+    setCsrfToken(res.data.csrfToken);
   }
-
-  // Error de red o servidor no disponible: se reporta el estado sin tirar pantalla blanca
-  return {
-    isAuthenticated: false,
-    user: null,
-    status: response.status,
-    isLoading: false,
-    errorMessage: response.error?.message || 'Servicio de autenticación no disponible.',
-  };
+  return res;
 }
 
-/**
- * Realiza el intento de inicio de sesión contra el backend (/api/v1/auth/login).
- */
-export async function loginWithCredentials(
-  email: string,
-  pass: string
-): Promise<ApiResponse<{ user: AuthUser; token?: string }>> {
-  return apiRequest('/auth/login', {
-    method: 'POST',
-    body: JSON.stringify({ email, password: pass }),
-  });
-}
-
-/**
- * Cierra la sesión activa (/api/v1/auth/logout).
- */
-export async function logoutSession(): Promise<ApiResponse> {
-  return apiRequest('/auth/logout', {
+export async function logout(): Promise<ApiResponse<void>> {
+  const res = await apiRequest<void>('/auth/logout', {
     method: 'POST',
   });
+  setCsrfToken(null);
+  return res;
 }
