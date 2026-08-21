@@ -51,7 +51,7 @@ export const ManageLotsModal: React.FC<ManageLotsModalProps> = ({
   if (!isOpen) return null;
 
   // Handle Barrio Submit
-  const handleDevSubmit = (e: React.FormEvent) => {
+  const handleDevSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const newErrors: Record<string, string> = {};
 
@@ -73,21 +73,24 @@ export const ManageLotsModal: React.FC<ManageLotsModalProps> = ({
       status: devStatus,
     });
 
-    onCreateDevelopment(newDev);
-    setSelectedDevId(newDev.id);
-    setDevName('');
-    setDevCity('');
-    setDevProvince('');
-    setDevAddress('');
-    setDevDescription('');
-    setErrors({});
-    setSuccessMsg(`Barrio "${newDev.name}" creado correctamente.`);
-    setTimeout(() => setSuccessMsg(null), 3000);
-    setActiveTab('LOT');
+    try {
+      await onCreateDevelopment(newDev);
+      setDevName('');
+      setDevCity('');
+      setDevProvince('');
+      setDevAddress('');
+      setDevDescription('');
+      setErrors({});
+      setSuccessMsg(`Barrio "${newDev.name}" creado correctamente.`);
+      setTimeout(() => setSuccessMsg(null), 3000);
+      setActiveTab('LOT');
+    } catch (err: any) {
+      setErrors({ devName: err.message || 'Ocurrió un error al crear el barrio.' });
+    }
   };
 
   // Handle Lote Submit
-  const handleLotSubmit = (e: React.FormEvent) => {
+  const handleLotSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const newErrors: Record<string, string> = {};
 
@@ -111,8 +114,8 @@ export const ManageLotsModal: React.FC<ManageLotsModalProps> = ({
         developmentId: selectedDevId,
         number: lotNumber,
         block: lotBlock,
-        surfaceM2: Number(surfaceM2) || 500,
-        priceUSD: Number(priceUSD) || 35000,
+        surfaceM2: Number(surfaceM2) || 0,
+        priceUSD: Number(priceUSD) || 0,
         currency,
         status: lotStatus,
         orientation,
@@ -121,12 +124,16 @@ export const ManageLotsModal: React.FC<ManageLotsModalProps> = ({
       currentDev?.name
     );
 
-    onCreateLot(newLot);
-    setLotNumber('');
-    setObservations('');
-    setErrors({});
-    setSuccessMsg(`Lote #${newLot.number} (Manzana ${newLot.block}) agregado y disponible para reservas.`);
-    setTimeout(() => setSuccessMsg(null), 4000);
+    try {
+      await onCreateLot(newLot);
+      setLotNumber('');
+      setObservations('');
+      setErrors({});
+      setSuccessMsg(`Lote #${newLot.number} (Manzana ${newLot.block}) agregado y disponible para reservas.`);
+      setTimeout(() => setSuccessMsg(null), 4000);
+    } catch (err: any) {
+      setErrors({ lotNumber: err.message || 'Ya existe un lote con ese código en el barrio seleccionado.' });
+    }
   };
 
   return (

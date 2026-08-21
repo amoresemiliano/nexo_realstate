@@ -91,11 +91,16 @@ export const CreateCampaignModal: React.FC<CreateCampaignModalProps> = ({
       conversions: 0,
       startDate,
       endDate: endDate || '2026-12-31',
+      objective: objective || undefined,
+      audience: targetAudience || undefined,
     };
 
-    onCreateCampaign(newCampaign);
-    setIsSubmitting(false);
-    onClose();
+    try {
+      onCreateCampaign(newCampaign);
+    } finally {
+      setIsSubmitting(false);
+      onClose();
+    }
   };
 
   return (

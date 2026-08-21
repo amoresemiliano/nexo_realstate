@@ -18,6 +18,9 @@ use Core\Database;
 
 use Controllers\AuthController;
 use Controllers\LeadController;
+use Controllers\CampaignController;
+use Controllers\DevelopmentController;
+use Controllers\LotController;
 
 use Middleware\AuthMiddleware;
 use Middleware\CsrfMiddleware;
@@ -65,6 +68,18 @@ $router->post('/api/v1/auth/logout', [AuthController::class, 'logout'], [CsrfMid
 // 3. Leads Endpoints
 $router->get('/api/v1/leads', [LeadController::class, 'index'], [AuthMiddleware::class]);
 $router->post('/api/v1/leads', [LeadController::class, 'store'], [AuthMiddleware::class, CsrfMiddleware::class]);
+
+// 4. Campaigns Endpoints
+$router->get('/api/v1/campaigns', [CampaignController::class, 'index'], [AuthMiddleware::class]);
+$router->post('/api/v1/campaigns', [CampaignController::class, 'store'], [AuthMiddleware::class, CsrfMiddleware::class]);
+
+// 5. Developments Endpoints
+$router->get('/api/v1/developments', [DevelopmentController::class, 'index'], [AuthMiddleware::class]);
+$router->post('/api/v1/developments', [DevelopmentController::class, 'store'], [AuthMiddleware::class, CsrfMiddleware::class]);
+
+// 6. Lots Endpoints
+$router->get('/api/v1/lots', [LotController::class, 'index'], [AuthMiddleware::class]);
+$router->post('/api/v1/lots', [LotController::class, 'store'], [AuthMiddleware::class, CsrfMiddleware::class]);
 
 // Dispatch route
 $router->dispatch($request);

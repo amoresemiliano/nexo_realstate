@@ -125,9 +125,18 @@ import { LotDetailSheet } from './components/modals/LotDetailSheet';
 import { Lot360ViewModal } from './components/lots/Lot360ViewModal';
 import { NotificationsSheet } from './components/modals/NotificationsSheet';
 
-// Auth & Persistence Services (P2A Foundation)
+// Auth & Persistence Services (P2A & P2B Foundation)
 import { AuthUser, getCurrentUser, logout as logoutAuth } from './services/authService';
 import { fetchLeadsApi, createLeadApi, mapBackendLeadToFrontend } from './services/leadService';
+import { fetchCampaignsApi, createCampaignApi, mapBackendCampaignToFrontend } from './services/campaignService';
+import {
+  fetchDevelopmentsApi,
+  createDevelopmentApi,
+  fetchLotsApi,
+  createLotApi,
+  mapBackendDevelopmentToFrontend,
+  mapBackendLotToFrontend,
+} from './services/lotService';
 import { LoginView } from './components/auth/LoginView';
 
 export function App() {
@@ -212,18 +221,48 @@ export function App() {
     }
   };
 
-  // P2A: Load Real Leads from API
-  const loadRealLeadsFromApi = async () => {
+  // P2A & P2B: Load Real Entities (Leads, Campaigns, Developments, Lots) from API
+  const loadRealEntitiesFromApi = async () => {
     try {
-      const res = await fetchLeadsApi();
-      if (res.status === 'OK' && Array.isArray(res.data?.leads)) {
-        const mappedLeads = res.data.leads.map(mapBackendLeadToFrontend);
+      const [leadsRes, campaignsRes, devRes, lotRes] = await Promise.all([
+        fetchLeadsApi().catch(() => null),
+        fetchCampaignsApi().catch(() => null),
+        fetchDevelopmentsApi().catch(() => null),
+        fetchLotsApi().catch(() => null),
+      ]);
+
+      if (leadsRes && leadsRes.status === 'OK' && Array.isArray(leadsRes.data?.leads)) {
+        const mappedLeads = leadsRes.data.leads.map(mapBackendLeadToFrontend);
         if (mappedLeads.length > 0) {
           setLeads(mappedLeads);
         }
       }
+
+      let loadedLots: Lot[] = [];
+      if (lotRes && lotRes.status === 'OK' && Array.isArray(lotRes.data?.lots)) {
+        loadedLots = lotRes.data.lots.map(mapBackendLotToFrontend);
+        if (loadedLots.length > 0) {
+          setLots(loadedLots);
+        }
+      }
+
+      if (devRes && devRes.status === 'OK' && Array.isArray(devRes.data?.developments)) {
+        const mappedDevs = devRes.data.developments.map((d: any) =>
+          mapBackendDevelopmentToFrontend(d, loadedLots)
+        );
+        if (mappedDevs.length > 0) {
+          setDevelopments(mappedDevs);
+        }
+      }
+
+      if (campaignsRes && campaignsRes.status === 'OK' && Array.isArray(campaignsRes.data?.campaigns)) {
+        const mappedCampaigns = campaignsRes.data.campaigns.map(mapBackendCampaignToFrontend);
+        if (mappedCampaigns.length > 0) {
+          setCampaigns(mappedCampaigns);
+        }
+      }
     } catch (err) {
-      console.warn('Backend API leads unreachable, maintaining state:', err);
+      console.warn('Error al cargar entidades desde API:', err);
     }
   };
 
@@ -235,7 +274,7 @@ export function App() {
         if (res.status === 'OK' && res.data?.user) {
           setAuthUser(res.data.user);
           setUserRole(res.data.user.role as UserRole);
-          await loadRealLeadsFromApi();
+          await loadRealEntitiesFromApi();
         } else {
           setAuthUser(null);
         }
@@ -252,7 +291,7 @@ export function App() {
   const handleLoginSuccess = async (user: AuthUser) => {
     setAuthUser(user);
     setUserRole(user.role as UserRole);
-    await loadRealLeadsFromApi();
+    await loadRealEntitiesFromApi();
   };
 
   const handleLogout = async () => {
@@ -867,6 +906,86 @@ export function App() {
     setLeads((prev) => [newLead, ...prev]);
   };
 
+  const handleCreateCampaign = async (newCamp: Campaign) => {
+    try {
+      const res = await createCampaignApi({
+        name: newCamp.name,
+        platform: newCamp.platform,
+        status: newCamp.status,
+        startDate: newCamp.startDate,
+        endDate: newCamp.endDate,
+        budgetUSD: newCamp.budgetUSD,
+        objective: newCamp.objective,
+        audience: newCamp.audience,
+      });
+
+      if (res.status === 'OK' && res.data?.campaign) {
+        const created = mapBackendCampaignToFrontend(res.data.campaign);
+        setCampaigns((prev) => [created, ...prev]);
+        return;
+      }
+    } catch (err) {
+      console.warn('API de Campañas no disponible, guardando en estado local:', err);
+    }
+
+    setCampaigns((prev) => [newCamp, ...prev]);
+  };
+
+  const handleCreateDevelopment = async (newDev: Development) => {
+    const locObj = typeof newDev.location === 'object' ? newDev.location : { city: 'Pilar', province: 'Buenos Aires', address: '' };
+    const address = 'address' in locObj ? locObj.address : '';
+    const res = await createDevelopmentApi({
+      name: newDev.name,
+      city: locObj.city,
+      province: locObj.province,
+      address,
+      description: newDev.description,
+      status: newDev.status as any,
+    });
+
+    if (res.status === 'OK' && res.data?.development) {
+      const created = mapBackendDevelopmentToFrontend(res.data.development, lots);
+      setDevelopments((prev) => [...prev, created]);
+      return;
+    }
+
+    if (res.error) {
+      throw new Error(res.error.message);
+    }
+
+    setDevelopments((prev) => [...prev, newDev]);
+  };
+
+  const handleCreateLot = async (newLot: Lot) => {
+    const res = await createLotApi({
+      developmentId: newLot.developmentId || developments[0]?.id || '1',
+      number: newLot.number,
+      block: newLot.block,
+      surfaceM2: newLot.surfaceM2,
+      priceUSD: newLot.priceUSD,
+      currency: newLot.currency,
+      status: newLot.status,
+      orientation: newLot.orientation,
+      observations: '',
+    });
+
+    if (res.status === 'OK' && res.data?.lot) {
+      const created = mapBackendLotToFrontend(res.data.lot);
+      const updatedLots = [created, ...lots];
+      setLots(updatedLots);
+      setDevelopments((prevDevs) =>
+        prevDevs.map((d) => mapBackendDevelopmentToFrontend(d, updatedLots))
+      );
+      return;
+    }
+
+    if (res.error) {
+      throw new Error(res.error.message);
+    }
+
+    setLots((prev) => [newLot, ...prev]);
+  };
+
   const handleUpdateLead = (leadOrId: Lead | string, updates?: Partial<Lead>) => {
     if (typeof leadOrId === 'string') {
       if (!updates) return;
@@ -1097,8 +1216,8 @@ export function App() {
             onToggleChecklist={handleToggleChecklist}
             onCancelReservation={handleCancelReservation}
             onChangeLot={handleChangeLot}
-            onCreateLot={(newLot) => setLots((prev) => [newLot, ...prev])}
-            onCreateDevelopment={(newDev) => setDevelopments((prev) => [newDev, ...prev])}
+            onCreateLot={handleCreateLot}
+            onCreateDevelopment={handleCreateDevelopment}
             onPrepareSale={(res) => setActiveModule('sales')}
           />
         )}
@@ -1141,7 +1260,7 @@ export function App() {
         {activeModule === 'campaigns' && (
           <CampaignsModule
             campaigns={campaigns}
-            onCreateCampaign={(newCamp) => setCampaigns((prev) => [newCamp, ...prev])}
+            onCreateCampaign={handleCreateCampaign}
           />
         )}
 

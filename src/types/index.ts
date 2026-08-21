@@ -533,6 +533,8 @@ export interface Campaign {
   status: 'ACTIVA' | 'PAUSADA' | 'FINALIZADA';
   developmentId?: string;
   developmentName?: string;
+  objective?: string;
+  audience?: string;
 }
 
 export interface LotHold {
